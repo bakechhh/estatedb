@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a73e8">
+    <meta name="description" content="不動産売買管理・在庫管理ツール">
+    <title>不動産売買管理システム</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
+</head>
+<body>
+    <div id="app">
+        <!-- ヘッダー -->
+        <header>
+            <h1>不動産売買管理システム</h1>
+            <div class="header-actions">
+                <span id="notification-badge" class="notification-badge" style="display: none;">0</span>
+                <!-- TODOクイックアクセスボタンを追加 -->
+                <button class="icon-btn" onclick="Todos.showTodoModal()" aria-label="TODO追加">📝</button>
+    
+                <!-- ランキングボタンを追加 -->
+                <button class="icon-btn" onclick="Goals.showRanking()" aria-label="ランキング">🏆</button>
+                <button id="notification-btn" class="icon-btn" aria-label="通知">🔔</button>
+                <button id="theme-toggle" class="icon-btn" aria-label="テーマ切替">🌓</button>
+            </div>
+        </header>
+
+        <!-- タブナビゲーション -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="dashboard">ダッシュボード</button>
+            <button class="tab-btn" data-tab="inventory">在庫管理</button>
+            <button class="tab-btn" data-tab="sales">売上登録</button>
+            <button class="tab-btn" data-tab="transactions">取引管理</button>
+            <button class="tab-btn" data-tab="yearly">年間推移</button>
+            <button class="tab-btn" data-tab="reports">レポート</button>
+            <button class="tab-btn" data-tab="settings">設定</button>
+        </nav>
+
+        <!-- メインコンテンツ -->
+        <main>
+            <!-- ダッシュボードタブ -->
+            <div id="dashboard-tab" class="tab-content active">
+                <div class="dashboard-grid">
+                    <!-- サマリーカード -->
+                    <div class="dashboard-card summary-card">
+                        <h3>📊 月次サマリー</h3>
+                        <div class="summary-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">今月の売上（税抜）</span>
+                                <span class="stat-value" id="monthly-revenue">¥0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">案件件数</span>
+                                <span class="stat-value" id="monthly-deals">0件</span>
+                                <div class="stat-detail" id="deal-breakdown"></div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">在庫物件数</span>
+                                <span class="stat-value" id="inventory-count">0件</span>
+                                <div class="stat-detail" id="inventory-breakdown"></div>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">在庫総額（売主物件）</span>
+                                <span class="stat-value" id="inventory-value">¥0</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- ここに目標進捗カードを追加 -->
+                    <div class="dashboard-card goal-card">
+                        <h3>🎯 目標進捗</h3>
+                        <div id="goal-progress">
+                            <p class="no-data">目標が設定されていません</p>
+                        </div>
+                        <button class="secondary-btn" onclick="Goals.showGoalModal()">目標設定</button>
+                    </div>
+                    <!-- 期限アラート -->
+                    <div class="dashboard-card alert-card">
+                        <h3>⏰ 期限アラート</h3>
+                        <div id="deadline-alerts" class="alert-list">
+                            <p class="no-data">期限が近い物件はありません</p>
+                        </div>
+                    </div>
+
+                    <!-- 最近の取引 -->
+                    <div class="dashboard-card recent-card">
+                        <h3>💼 最近の取引</h3>
+                        <div id="recent-transactions" class="transaction-list">
+                            <p class="no-data">取引履歴がありません</p>
+                        </div>
+                    </div>
+                    <!-- ここにTODOウィジェットを追加 -->
+                    <div class="dashboard-card todo-widget" id="todo-widget">
+                        <h3>📋 TODO</h3>
+                        <div class="todo-list">
+                            <p class="no-data">TODOはありません</p>
+                        </div>
+                        <button class="add-todo-btn" onclick="Todos.showTodoModal()">+ TODO追加</button>
+                    </div>
+            
+                    <!-- 今月の媒介獲得物件カード -->
+                    <div class="dashboard-card mediation-card">
+                        <h3>🏠 今月の媒介獲得物件</h3>
+                        <div id="mediation-properties">
+                            <!-- 媒介獲得物件リストが表示される -->
+                        </div>
+                    </div>
+
+                    <!-- カレンダービュー -->
+                    <div class="dashboard-card calendar-card">
+                        <h3>📅 月間カレンダー</h3>
+                        <div id="calendar-view"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 在庫管理タブ -->
+            <div id="inventory-tab" class="tab-content">
+                <div class="inventory-header">
+                    <div class="search-filter-group">
+                        <input type="text" id="inventory-search" placeholder="物件名・住所で検索...">
+                        <select id="property-type-filter">
+                            <option value="all">すべての物件種別</option>
+                            <option value="land">土地</option>
+                            <option value="house">戸建</option>
+                            <option value="apartment">マンション</option>
+                            <option value="income">収益物件</option>
+                        </select>
+                        <select id="status-filter">
+                            <option value="all">すべてのステータス</option>
+                            <option value="active">販売中</option>
+                            <option value="negotiating">商談中</option>
+                            <option value="contracted">契約済</option>
+                            <option value="completed">取引完了</option>
+                        </select>
+                    </div>
+                    <button id="add-property-btn" class="primary-btn">+ 新規物件登録</button>
+                </div>
+
+                <div id="inventory-list" class="inventory-list">
+                    <!-- 物件リストがここに表示される -->
+                </div>
+            </div>
+
+            <!-- 売上登録タブ -->
+            <div id="sales-tab" class="tab-content">
+                <!-- サブタブ -->
+                <div class="sub-tabs">
+                    <button class="sub-tab-btn active" data-subtab="realestate">売買</button>
+                    <button class="sub-tab-btn" data-subtab="renovation">リフォーム</button>
+                    <button class="sub-tab-btn" data-subtab="other">その他</button>
+                </div>
+            
+                <!-- 売買サブタブ -->
+                <div id="realestate-subtab" class="sub-tab-content active">
+                    <form id="realestate-form" class="sales-form">
+                        <div class="form-group">
+                            <label for="deal-name">案件名</label>
+                            <input type="text" id="deal-name" placeholder="例：渋谷区マンション売買">
+                            <div class="form-hint">未入力の場合は顧客名が使用されます</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sale-property">物件選択（任意）</label>
+                            <select id="sale-property">
+                                <option value="">物件を選択してください</option>
+                            </select>
+                            <div class="form-hint">登録済み物件から選択できます</div>
+                            <label style="margin-top: 0.5rem; display: block;">
+                                <input type="checkbox" id="show-all-properties">
+                                すべての物件を表示（販売中以外も含む）
+                            </label>
+                        </div>
+            
+                        <div class="form-group or-divider"></div>
+            
+                        <div class="form-group">
+                            <label for="property-name-input">物件名（直接入力）</label>
+                            <input type="text" id="property-name-input" placeholder="物件選択しない場合は入力">
+                            <div class="form-hint">新規物件や未登録物件の場合はこちらに入力</div>
+                        </div>
+            
+                        <div class="form-group">
+                            <label for="sale-number">売上番号（任意）</label>
+                            <input type="text" id="sale-number" placeholder="例：2024-001">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="sale-date">成約日</label>
+                            <input type="date" id="sale-date" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="settlement-date">決済期日</label>
+                            <input type="date" id="settlement-date" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="loan-condition-date">融資特約期日（任意）</label>
+                            <input type="date" id="loan-condition-date">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="collection-date">回収日（任意）</label>
+                            <input type="date" id="collection-date">
+                        </div>
+            
+                        <div class="form-group">
+                            <label for="transaction-type">取引様態</label>
+                            <select id="transaction-type" required>
+                                <option value="">選択してください</option>
+                                <option value="seller">売主</option>
+                                <option value="buyer-agent">買主側仲介</option>
+                                <option value="seller-agent">売主側仲介</option>
+                                <option value="both-agent">両手仲介</option>
+                            </select>
+                        </div>
+            
+                        <div class="form-group">
+                            <label for="sale-price">成約価格（円）</label>
+                            <input type="number" id="sale-price" required min="0">
+                        </div>
+            
+                        <div id="purchase-price-field" style="display: none;">
+                            <div class="form-group">
+                                <label for="purchase-price-input">仕入価格（円）</label>
+                                <input type="number" id="purchase-price-input" min="0" placeholder="売主の場合は入力">
+                            </div>
+                        </div>
+            
+                        <div id="commission-fields" style="display: none;">
+                            <div class="form-group">
+                                <label for="commission-type">仲介手数料</label>
+                                <select id="commission-type">
+                                    <option value="standard" selected>正規手数料</option>
+                                    <option value="fixed">33万円固定（税込）</option>
+                                    <option value="direct">直接入力</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <input type="number" id="commission-amount" placeholder="手数料を入力（税抜）" min="0" style="display: none;">
+                                <div id="commission-display" class="commission-info"></div>
+                            </div>
+                        </div>
+            
+                        <div class="form-group">
+                            <label for="other-expenses">諸経費（円）</label>
+                            <input type="number" id="other-expenses" min="0" value="0">
+                        </div>
+            
+                        <div class="form-group">
+                            <label for="customer-name">顧客名</label>
+                            <input type="text" id="customer-name" required>
+                        </div>
+            
+                        <div class="form-group">
+                            <label for="sale-notes">備考</label>
+                            <textarea id="sale-notes" rows="3"></textarea>
+                        </div>
+            
+                        <div class="result-box">
+                            <h3>収益計算</h3>
+                            <div class="result-item">
+                                <span>成約価格：</span>
+                                <span id="result-sale-price">¥0</span>
+                            </div>
+                            <div class="result-item" id="result-commission-row" style="display: none;">
+                                <span>仲介手数料：</span>
+                                <span id="result-commission">¥0</span>
+                            </div>
+                            <div class="result-item" id="result-purchase-row" style="display: none;">
+                                <span>仕入価格：</span>
+                                <span id="result-purchase-price">-¥0</span>
+                            </div>
+                            <div class="result-item">
+                                <span>諸経費：</span>
+                                <span id="result-expenses">-¥0</span>
+                            </div>
+                            <div class="result-item total">
+                                <span>収益：</span>
+                                <span id="result-profit">¥0</span>
+                            </div>
+                        </div>
+            
+                        <button type="submit" class="primary-btn">売上登録</button>
+                    </form>
+                </div>
+            
+                <!-- リフォームサブタブ -->
+                <div id="renovation-subtab" class="sub-tab-content">
+                    <form id="renovation-form" class="sales-form">
+                        <div class="form-group">
+                            <label for="reno-deal-name">案件名</label>
+                            <input type="text" id="reno-deal-name" placeholder="例：〇〇邸リフォーム工事">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="reno-sale-number">売上番号（任意）</label>
+                            <input type="text" id="reno-sale-number" placeholder="例：2024-001">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="reno-property-name">物件名/顧客名</label>
+                            <input type="text" id="reno-property-name" required>
+                        </div>
+            
+                        <div class="form-group">
+                            <label for="reno-date">施工完了日</label>
+                            <input type="date" id="reno-date" required>
+                        </div>
+            
+                        <div class="form-group">
+                            <label for="reno-content">リフォーム内容</label>
+                            <textarea id="reno-content" rows="3" required></textarea>
+                        </div>
+            
+                        <div class="form-group">
+                            <label for="reno-cost">原価（円）</label>
+                            <input type="number" id="reno-cost" required min="0">
+                        </div>
+            
+                        <div class="form-group">
+                            <label for="reno-price">請求金額（円）</label>
+                            <input type="number" id="reno-price" required min="0">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reno-collection-date">回収日（任意）</label>
+                            <input type="date" id="reno-collection-date">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="reno-contractor">施工業者</label>
+                            <input type="text" id="reno-contractor">
+                        </div>
+            
+                        <div class="result-box">
+                            <h3>利益計算</h3>
+                            <div class="result-item">
+                                <span>請求金額：</span>
+                                <span id="reno-result-price">¥0</span>
+                            </div>
+                            <div class="result-item">
+                                <span>原価：</span>
+                                <span id="reno-result-cost">-¥0</span>
+                            </div>
+                            <div class="result-item total">
+                                <span>利益：</span>
+                                <span id="reno-result-profit">¥0</span>
+                            </div>
+                            <div class="result-item">
+                                <span>利益率：</span>
+                                <span id="reno-result-rate">0%</span>
+                            </div>
+                        </div>
+            
+                        <button type="submit" class="primary-btn">売上登録</button>
+                    </form>
+                </div>
+            
+                <!-- その他サブタブ -->
+                <div id="other-subtab" class="sub-tab-content">
+                    <form id="other-form" class="sales-form">
+                        <div class="form-group">
+                            <label for="other-deal-name">案件名</label>
+                            <input type="text" id="other-deal-name" placeholder="例：〇〇コンサルティング">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="other-sale-number">売上番号（任意）</label>
+                            <input type="text" id="other-sale-number" placeholder="例：2024-001">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="other-type">収益種別</label>
+                            <select id="other-type" required>
+                                <option value="">選択してください</option>
+                                <option value="consulting">コンサルティング</option>
+                                <option value="referral">紹介料</option>
+                                <option value="management">管理料</option>
+                                <option value="other">その他</option>
+                            </select>
+                        </div>
+            
+                        <div class="form-group">
+                            <label for="other-date">発生日</label>
+                            <input type="date" id="other-date" required>
+                        </div>
+            
+                        <div class="form-group">
+                            <label for="other-amount">金額（円）</label>
+                            <input type="number" id="other-amount" required min="0">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="other-collection-date">回収日（任意）</label>
+                            <input type="date" id="other-collection-date">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="other-customer">顧客名/案件名</label>
+                            <input type="text" id="other-customer" required>
+                        </div>
+            
+                        <div class="form-group">
+                            <label for="other-description">内容詳細</label>
+                            <textarea id="other-description" rows="4" required></textarea>
+                        </div>
+            
+                        <button type="submit" class="primary-btn">売上登録</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 取引管理タブ -->
+            <div id="transactions-tab" class="tab-content">
+                <div class="transactions-header">
+                    <div class="search-filter-group">
+                        <input type="text" id="transaction-search" placeholder="案件名・顧客名で検索...">
+                        <select id="transaction-type-filter">
+                            <option value="all">すべての種別</option>
+                            <option value="realestate">売買</option>
+                            <option value="renovation">リフォーム</option>
+                            <option value="other">その他</option>
+                        </select>
+                        <select id="transaction-period-filter">
+                            <option value="all">全期間</option>
+                            <option value="month">今月</option>
+                            <option value="quarter">今四半期</option>
+                            <option value="year">今年</option>
+                        </select>
+                        <select id="collection-status-filter">
+                            <option value="all">すべて</option>
+                            <option value="pending">未回収</option>
+                            <option value="collected">回収済</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="transaction-list" class="transaction-management-list">
+                    <!-- 取引リストがここに表示される -->
+                </div>
+            </div>
+            <!-- 年間推移タブ -->
+            <div id="yearly-tab" class="tab-content">
+                <div class="yearly-header">
+                    <select id="yearly-year">
+                        <!-- 年度選択オプションがJavaScriptで動的に生成される -->
+                    </select>
+                    <button id="refresh-yearly-btn" class="primary-btn">更新</button>
+                </div>
+            
+                <div id="yearly-content" class="yearly-content">
+                    <!-- 年間推移データがここに表示される -->
+                </div>
+            </div>
+            <!-- レポートタブ -->
+            <div id="reports-tab" class="tab-content">
+                <div class="report-header">
+                    <select id="report-period">
+                        <option value="month">今月</option>
+                        <option value="quarter">今四半期</option>
+                        <option value="year">今年</option>
+                        <option value="custom">期間指定</option>
+                    </select>
+                    <div id="custom-period" style="display: none;">
+                        <input type="date" id="report-start-date">
+                        <span>〜</span>
+                        <input type="date" id="report-end-date">
+                    </div>
+                    <button id="generate-report-btn" class="primary-btn">レポート生成</button>
+                </div>
+
+                <div id="report-content" class="report-content">
+                    <!-- レポート内容がここに表示される -->
+                </div>
+            </div>
+
+            <!-- 設定タブ -->
+            <div id="settings-tab" class="tab-content">
+                <div class="settings-section">
+                    <h3>データ管理</h3>
+                    <button id="export-json" class="primary-btn">データをエクスポート (JSON)</button>
+                    <button id="import-json" class="secondary-btn">データをインポート (JSON)</button>
+                    <input type="file" id="import-file" accept=".json" style="display: none;">
+                    <button id="export-csv" class="primary-btn">売上データをCSV出力</button>
+                    <button id="clear-data" class="danger-btn">全データを削除</button>
+                </div>
+
+                <div class="settings-section">
+                    <h3>通知設定</h3>
+                    <div class="form-group">
+                        <label for="notification-days">媒介契約満了通知（日前）</label>
+                        <input type="number" id="notification-days" min="1" max="90" value="30">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="enable-browser-notification">
+                            ブラウザ通知を有効にする
+                        </label>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>デフォルト設定</h3>
+                    <div class="form-group">
+                        <label for="default-tax-rate">消費税率（%）</label>
+                        <input type="number" id="default-tax-rate" min="0" max="100" step="1" value="10">
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 物件登録/編集モーダル -->
+        <div id="property-modal" class="modal" style="display: none;">
+            <div class="modal-content modal-large">
+                <h3 id="property-modal-title">新規物件登録</h3>
+                <form id="property-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="property-code">物件番号</label>
+                            <input type="text" id="property-code" required placeholder="例：25-1-1">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="property-name">物件名称</label>
+                            <input type="text" id="property-name" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="property-type">物件種別</label>
+                            <select id="property-type" required>
+                                <option value="">選択してください</option>
+                                <option value="land">土地</option>
+                                <option value="house">戸建</option>
+                                <option value="apartment">マンション</option>
+                                <option value="income">収益物件</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="property-status">ステータス</label>
+                            <select id="property-status" required>
+                                <option value="active">販売中</option>
+                                <option value="negotiating">商談中</option>
+                                <option value="contracted">契約済</option>
+                                <option value="completed">取引完了</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="property-address">所在地</label>
+                            <input type="text" id="property-address" required placeholder="東京都渋谷区○○1-2-3">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="property-station">最寄り駅</label>
+                            <input type="text" id="property-station" placeholder="渋谷駅">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="property-walk-time">徒歩（分）</label>
+                            <input type="number" id="property-walk-time" min="1" placeholder="5">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="land-area">土地面積（㎡）</label>
+                            <input type="number" id="land-area" min="0" step="0.01">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="building-area">建物面積（㎡）</label>
+                            <input type="number" id="building-area" min="0" step="0.01">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="property-age">築年数</label>
+                            <input type="number" id="property-age" min="0">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="property-structure">構造</label>
+                            <select id="property-structure">
+                                <option value="">選択してください</option>
+                                <option value="wood">木造</option>
+                                <option value="steel">鉄骨造</option>
+                                <option value="rc">RC造</option>
+                                <option value="src">SRC造</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="selling-price">売出価格（円）</label>
+                            <input type="number" id="selling-price" required min="0">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="purchase-price">仕入価格（円）</label>
+                            <input type="number" id="purchase-price" min="0">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="transaction-mode">取引様態</label>
+                            <select id="transaction-mode" required>
+                                <option value="">選択してください</option>
+                                <option value="seller">売主</option>
+                                <option value="exclusive">専属専任媒介</option>
+                                <option value="special">専任媒介</option>
+                                <option value="general">一般媒介</option>
+                                <option value="agent">代理</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="owner-name">売主名</label>
+                            <input type="text" id="owner-name">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="owner-contact">売主連絡先</label>
+                            <input type="text" id="owner-contact">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="contract-date">媒介契約日</label>
+                            <input type="date" id="contract-date">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="contract-end-date">媒介契約満了日</label>
+                            <input type="date" id="contract-end-date">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reins-number">レインズ登録番号</label>
+                            <input type="text" id="reins-number">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reins-date">レインズ登録日</label>
+                            <input type="date" id="reins-date">
+                        </div>
+
+                        <!-- レインズ登録期日を追加（レインズ登録日の後） -->
+                        <div class="form-group">
+                            <label for="reins-deadline">レインズ登録期日</label>
+                            <input type="date" id="reins-deadline">
+                        </div>
+                                                
+                        <div class="form-group full-width">
+                            <label for="property-notes">備考</label>
+                            <textarea id="property-notes" rows="3"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="submit" class="primary-btn">保存</button>
+                        <button type="button" class="secondary-btn" onclick="EstateApp.closePropertyModal()">キャンセル</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 売上編集モーダル -->
+        <div id="sale-edit-modal" class="modal" style="display: none;">
+            <div class="modal-content modal-large">
+                <h3 id="sale-edit-modal-title">売上編集</h3>
+                <div id="sale-edit-form-container">
+                    <!-- 編集フォームが動的に挿入される -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 通知パネル -->
+        <div id="notification-panel" class="notification-panel" style="display: none;">
+            <div class="notification-header">
+                <h3>通知</h3>
+                <button class="close-btn" onclick="EstateApp.closeNotificationPanel()">×</button>
+            </div>
+            <div id="notification-list" class="notification-list">
+                <!-- 通知リストがここに表示される -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/storage.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/inventory.js"></script>
+    <script src="js/sales.js"></script>
+    <script src="js/transactions.js"></script>
+    <script src="js/reports.js"></script>
+    <script src="js/export.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/calendar.js"></script>
+    <script src="js/effects.js"></script>
+    <script src="js/yearly.js"></script>
+    <script src="js/goals.js"></script>
+    <script src="js/memos.js"></script>
+    <script src="js/todos.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
