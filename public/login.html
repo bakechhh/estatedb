@@ -7,28 +7,25 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh;">
-        <div style="background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); width: 100%; max-width: 400px;">
-            <h1 style="text-align: center; color: #1a73e8;">🏢 不動産売買管理システム</h1>
-            <div id="error-message" style="color: #ea4335; text-align: center; margin-bottom: 1rem; display: none;"></div>
+    <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: var(--bg-secondary);">
+        <div style="background: var(--bg-primary); padding: 2rem; border-radius: var(--border-radius); box-shadow: 0 4px 16px var(--shadow); width: 100%; max-width: 400px;">
+            <h1 style="text-align: center; color: var(--accent-color); margin-bottom: 2rem;">🏢 不動産売買管理システム</h1>
+            <div id="error-message" style="color: var(--danger-color); text-align: center; margin-bottom: 1rem; display: none;"></div>
             <form id="login-form">
                 <div class="form-group">
                     <label for="store-id">店舗ID</label>
-                    <input type="text" id="store-id" required placeholder="例: STORE001">
+                    <input type="text" id="store-id" required placeholder="店舗IDを入力">
                 </div>
                 <div class="form-group">
                     <label for="staff-id">スタッフID</label>
-                    <input type="text" id="staff-id" required placeholder="例: STAFF001">
+                    <input type="text" id="staff-id" required placeholder="スタッフIDを入力">
                 </div>
                 <div class="form-group">
                     <label for="password">パスワード</label>
-                    <input type="password" id="password" required>
+                    <input type="password" id="password" required placeholder="パスワードを入力">
                 </div>
                 <button type="submit" class="primary-btn" style="width: 100%;">ログイン</button>
             </form>
-            <p style="margin-top: 1rem; font-size: 0.9rem; color: #666; text-align: center;">
-                テスト用: STORE001 / STAFF001 / password123
-            </p>
         </div>
     </div>
 
@@ -36,21 +33,30 @@
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            // テスト用の簡易認証
             const storeId = document.getElementById('store-id').value;
             const staffId = document.getElementById('staff-id').value;
             const password = document.getElementById('password').value;
             
-            if (storeId === 'STORE001' && staffId === 'STAFF001' && password === 'password123') {
-                // 認証情報を保存
-                sessionStorage.setItem('auth_token', 'test-token');
-                sessionStorage.setItem('store_id', storeId);
-                sessionStorage.setItem('staff_id', staffId);
-                sessionStorage.setItem('staff_name', '田中太郎');
+            try {
+                const response = await fetch('/.netlify/functions/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ storeId, staffId, password })
+                });
+
+                const result = await response.json();
                 
-                // メインページへ
-                window.location.href = '/';
-            } else {
+                if (result.success) {
+                    sessionStorage.setItem('auth_token', result.token);
+                    sessionStorage.setItem('store_id', storeId);
+                    sessionStorage.setItem('staff_id', staffId);
+                    sessionStorage.setItem('staff_name', result.staff.name);
+                    window.location.href = '/';
+                } else {
+                    document.getElementById('error-message').textContent = result.error;
+                    document.getElementById('error-message').style.display = 'block';
+                }
+            } catch (error) {
                 document.getElementById('error-message').textContent = 'ログインに失敗しました';
                 document.getElementById('error-message').style.display = 'block';
             }
