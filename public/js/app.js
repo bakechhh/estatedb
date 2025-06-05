@@ -5,6 +5,11 @@ const EstateApp = {
 
     init() {
         Permissions.init();
+        // 既存データの移行（初回のみ）
+        if (!localStorage.getItem('data_migrated_with_staff')) {
+            Storage.migrateDataWithStaffId();
+            localStorage.setItem('data_migrated_with_staff', 'true');
+        }
         this.setupTheme();
         this.setupTabs();
         this.setupEventListeners();

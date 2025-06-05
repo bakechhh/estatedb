@@ -96,6 +96,68 @@ const Storage = {
         return properties.filter(property => property.staffId === staffId);
     },
 
+    // 売上データ保存時に担当者IDを自動付与
+    saveSale(sale) {
+        const sales = this.getSales();
+        sale.id = Date.now().toString();
+        sale.createdAt = new Date().toISOString();
+        sale.staffId = Permissions.getCurrentStaffId(); // 自動で担当者IDを付与
+        sales.unshift(sale);
+        localStorage.setItem(this.KEYS.SALES, JSON.stringify(sales));
+        
+        return sale;
+    },
+
+    // 物件データ保存時に担当者IDを自動付与
+    saveProperty(property) {
+        const properties = this.getProperties();
+        
+        if (!property.id) {
+            property.id = Date.now().toString();
+            property.createdAt = new Date().toISOString();
+            property.staffId = Permissions.getCurrentStaffId(); // 自動で担当者IDを付与
+            properties.unshift(property);
+        } else {
+            const index = properties.findIndex(p => p.id === property.id);
+            if (index !== -1) {
+                property.updatedAt = new Date().toISOString();
+                // 既存データの場合、staffIdは変更しない（元の担当者を維持）
+                properties[index] = { ...properties[index], ...property };
+            }
+        }
+        
+        localStorage.setItem(this.KEYS.PROPERTIES, JSON.stringify(properties));
+        return property;
+    },
+    migrateDataWithStaffId() {
+        const currentStaffId = Permissions.getCurrentStaffId();
+        
+        // 売上データの移行
+        const sales = this.getSales();
+        let updated = false;
+        sales.forEach(sale => {
+            if (!sale.staffId) {
+                sale.staffId = currentStaffId;
+                updated = true;
+            }
+        });
+        if (updated) {
+            localStorage.setItem(this.KEYS.SALES, JSON.stringify(sales));
+        }
+        
+        // 物件データの移行
+        const properties = this.getProperties();
+        updated = false;
+        properties.forEach(property => {
+            if (!property.staffId) {
+                property.staffId = currentStaffId;
+                updated = true;
+            }
+        });
+        if (updated) {
+            localStorage.setItem(this.KEYS.PROPERTIES, JSON.stringify(properties));
+        }
+    },
     saveProperty(property) {
         const properties = this.getProperties();
         
