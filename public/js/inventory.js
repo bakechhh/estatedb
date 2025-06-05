@@ -214,6 +214,7 @@ const Inventory = {
                         <div>
                             <div class="property-title">${property.name}</div>
                             <div class="property-code">${property.code}</div>
+                            <div class="property-staff">担当: ${Staff.getStaffName(property.staffId || '未設定')}</div>
                         </div>
                         <span class="property-status ${statusClass}">${statusText}</span>
                     </div>
@@ -246,6 +247,9 @@ const Inventory = {
                         <button class="info-btn" onclick="Memos.showMemoModal('property', '${property.id}', '${property.name}')">メモ</button>
                         ${Permissions.canEditProperty(property) ? `
                             <button class="secondary-btn" onclick="Inventory.showPropertyModal(${JSON.stringify(property).replace(/"/g, '&quot;')})">編集</button>
+                            ${Permissions.isManager() ? `
+                                <button class="secondary-btn" onclick="Staff.showChangeStaffModal('property', '${property.id}', '${property.staffId}')">担当変更</button>
+                            ` : ''}
                             <button class="danger-btn" onclick="Inventory.deleteProperty('${property.id}')">削除</button>
                         ` : `
                             <button class="secondary-btn" disabled style="opacity: 0.5; cursor: not-allowed;">編集不可</button>

@@ -4,7 +4,11 @@ const EstateApp = {
     notificationCheckInterval: null,
 
     init() {
+        // 権限管理の初期化
         Permissions.init();
+        
+        // スタッフ管理の初期化
+        Staff.init();
         // 既存データの移行（初回のみ）
         if (!localStorage.getItem('data_migrated_with_staff')) {
             Storage.migrateDataWithStaffId();

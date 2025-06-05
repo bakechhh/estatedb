@@ -93,6 +93,14 @@
                         </div>
                         <button class="secondary-btn" onclick="Goals.showGoalModal()">目標設定</button>
                     </div>
+                     <!-- ここに追加: スタッフ実績カード（マネージャー用） -->
+                    <div class="dashboard-card staff-performance-card" id="staff-performance-card" style="display: none;">
+                        <h3>👥 スタッフ別実績</h3>
+                        <div id="staff-performance-summary">
+                            <!-- スタッフ実績サマリーが表示される -->
+                        </div>
+                        <button class="secondary-btn" onclick="Staff.showStaffPerformanceModal()">詳細を見る</button>
+                    </div>
                     <!-- 期限アラート -->
                     <div class="dashboard-card alert-card">
                         <h3>⏰ 期限アラート</h3>
@@ -719,6 +727,7 @@
     <script src="js/memos.js"></script>
     <script src="js/todos.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/staff.js"></script>
     <script>
         // ユーザー情報表示
         const userInfo = document.getElementById('user-info');

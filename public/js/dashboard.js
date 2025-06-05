@@ -3,16 +3,19 @@ const Dashboard = {
    currentView: 'store', // デフォルトは店舗全体
    
    init() {
-       this.setupViewToggle();
-       this.refresh();
-       if (typeof Calendar !== 'undefined') {
-           Calendar.render();
-       }
-       // TODOウィジェットを表示
-       if (typeof Todos !== 'undefined') {
-           Todos.renderTodoWidget();
-       }
-   },
+        this.setupViewToggle();
+        this.refresh();
+        
+        // スタッフ実績カードの表示制御
+        this.toggleStaffPerformanceCard();
+        
+        if (typeof Calendar !== 'undefined') {
+            Calendar.render();
+        }
+        if (typeof Todos !== 'undefined') {
+            Todos.renderTodoWidget();
+        }
+    },
 
    // ビュー切り替えの設定（スタッフも使える）
    setupViewToggle() {
@@ -42,12 +45,54 @@ const Dashboard = {
    },
 
    refresh() {
-       this.updateSummary();
-       this.updateDeadlineAlerts();
-       this.updateRecentTransactions();
-       this.updateGoalProgress();
-       this.updateMediationProperties();
-   },
+        this.updateSummary();
+        this.updateDeadlineAlerts();
+        this.updateRecentTransactions();
+        this.updateGoalProgress();
+        this.updateMediationProperties();
+        
+        // マネージャーの場合はスタッフ実績も更新
+        if (Permissions.isManager()) {
+            this.updateStaffPerformance();
+        }
+    },
+
+    toggleStaffPerformanceCard() {
+        const card = document.getElementById('staff-performance-card');
+        if (card) {
+            if (Permissions.isManager()) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        }
+    },
+    
+    updateStaffPerformance() {
+        const container = document.getElementById('staff-performance-summary');
+        if (!container) return;
+        
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const performance = Staff.getStaffPerformance(currentMonth);
+        
+        // 売上順にソート
+        performance.sort((a, b) => b.totalRevenue - a.totalRevenue);
+        
+        container.innerHTML = `
+            <div class="staff-performance-list">
+                ${performance.slice(0, 3).map((staff, index) => `
+                    <div class="staff-performance-item">
+                        <div class="staff-rank">${index + 1}位</div>
+                        <div class="staff-info">
+                            <div class="staff-name">${staff.name}</div>
+                            <div class="staff-revenue">${EstateApp.formatCurrency(staff.totalRevenue)}</div>
+                        </div>
+                        <div class="staff-deals">${staff.dealCount}件</div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    },
 
    updateSummary() {
        // 今月の統計を取得
