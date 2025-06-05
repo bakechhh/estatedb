@@ -1,0 +1,12 @@
+{
+  "name": "estatedb",
+  "version": "1.0.0",
+  "description": "不動産売買管理システム",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'No build required'"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  }
+}
