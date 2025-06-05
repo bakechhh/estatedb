@@ -1,8 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
-    console.log('Sync-data function called');
-    
     const headers = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
@@ -14,25 +12,10 @@ exports.handler = async (event, context) => {
     }
 
     try {
-        // 環境変数の確認
-        if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-            console.error('Missing environment variables');
-            return {
-                statusCode: 500,
-                headers,
-                body: JSON.stringify({ 
-                    error: '環境変数が設定されていません',
-                    hasUrl: !!process.env.SUPABASE_URL,
-                    hasKey: !!process.env.SUPABASE_ANON_KEY
-                })
-            };
-        }
-        
         const supabase = createClient(
             process.env.SUPABASE_URL,
             process.env.SUPABASE_ANON_KEY
         );
-        console.log('Supabase client created');
 
         const token = event.headers.authorization?.replace('Bearer ', '');
         if (!token) {
@@ -43,50 +26,51 @@ exports.handler = async (event, context) => {
             };
         }
 
-        let tokenData;
-        try {
-            tokenData = JSON.parse(Buffer.from(token, 'base64').toString());
-        } catch (e) {
-            console.error('Token parse error:', e);
-            return {
-                statusCode: 401,
-                headers,
-                body: JSON.stringify({ error: 'トークンが無効です' })
-            };
-        }
-
+        const tokenData = JSON.parse(Buffer.from(token, 'base64').toString());
         const { storeId, staffId } = tokenData;
         const { data, action } = JSON.parse(event.body);
 
-        console.log('Action:', action, 'StoreId:', storeId);
-
         if (action === 'save') {
-            console.log('Saving data for store:', storeId);
-            
-            const { data: result, error } = await supabase
+            // まず既存データを削除してから新規挿入（完全な更新）
+            const { error: deleteError } = await supabase
                 .from('store_data')
-                .upsert({
+                .delete()
+                .eq('store_id', storeId);
+
+            if (deleteError) {
+                console.error('Delete error:', deleteError);
+            }
+
+            // 新しいデータを挿入
+            const { error: insertError } = await supabase
+                .from('store_data')
+                .insert({
                     store_id: storeId,
                     data: JSON.stringify(data),
                     last_updated_by: staffId,
                     updated_at: new Date().toISOString()
-                })
-                .select();
+                });
 
-            if (error) {
-                console.error('Supabase save error:', error);
-                return {
-                    statusCode: 500,
-                    headers,
-                    body: JSON.stringify({ 
-                        error: 'データ保存エラー',
-                        details: error.message,
-                        code: error.code
-                    })
-                };
+            if (insertError) {
+                // コンフリクトエラーの場合は更新を試みる
+                if (insertError.code === '23505') {
+                    const { error: updateError } = await supabase
+                        .from('store_data')
+                        .update({
+                            data: JSON.stringify(data),
+                            last_updated_by: staffId,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('store_id', storeId);
+
+                    if (updateError) {
+                        throw updateError;
+                    }
+                } else {
+                    throw insertError;
+                }
             }
 
-            console.log('Save successful:', result);
             return {
                 statusCode: 200,
                 headers,
@@ -94,8 +78,6 @@ exports.handler = async (event, context) => {
             };
             
         } else if (action === 'load') {
-            console.log('Loading data for store:', storeId);
-            
             const { data: storeData, error } = await supabase
                 .from('store_data')
                 .select('*')
@@ -103,20 +85,10 @@ exports.handler = async (event, context) => {
                 .single();
 
             if (error && error.code !== 'PGRST116') {
-                console.error('Supabase load error:', error);
-                return {
-                    statusCode: 500,
-                    headers,
-                    body: JSON.stringify({ 
-                        error: 'データ読み込みエラー',
-                        details: error.message,
-                        code: error.code
-                    })
-                };
+                throw error;
             }
 
             if (storeData) {
-                console.log('Data loaded successfully');
                 return {
                     statusCode: 200,
                     headers,
@@ -128,7 +100,6 @@ exports.handler = async (event, context) => {
                 };
             }
 
-            console.log('No data found for store');
             return {
                 statusCode: 200,
                 headers,
@@ -139,7 +110,7 @@ exports.handler = async (event, context) => {
         return {
             statusCode: 400,
             headers,
-            body: JSON.stringify({ error: '不正なアクション: ' + action })
+            body: JSON.stringify({ error: '不正なアクション' })
         };
         
     } catch (error) {
@@ -149,8 +120,7 @@ exports.handler = async (event, context) => {
             headers,
             body: JSON.stringify({ 
                 error: 'サーバーエラー',
-                message: error.message,
-                stack: error.stack
+                details: error.message 
             })
         };
     }

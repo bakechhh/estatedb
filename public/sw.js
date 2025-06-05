@@ -1,89 +1,71 @@
-// sw.js - Service Worker for offline functionality
+// キャッシュ名
 const CACHE_NAME = 'estate-app-v1';
+
+// キャッシュするファイル
 const urlsToCache = [
-    './',
-    './index.html',
-    './css/style.css',
-    './js/app.js',
-    './js/storage.js',
-    './js/dashboard.js',
-    './js/inventory.js',
-    './js/sales.js',
-    './js/reports.js',
-    './js/notifications.js',
-    './js/export.js',
-    './manifest.json'
+  '/',
+  '/css/style.css',
+  '/js/app.js',
+  '/js/storage.js',
+  '/js/dashboard.js',
+  '/js/inventory.js',
+  '/js/sales.js',
+  '/js/transactions.js',
+  '/js/reports.js',
+  '/js/export.js',
+  '/js/notifications.js',
+  '/js/calendar.js',
+  '/js/effects.js',
+  '/js/yearly.js',
+  '/js/goals.js',
+  '/js/memos.js',
+  '/js/todos.js'
 ];
 
-// インストール
+// インストール時
 self.addEventListener('install', event => {
-    event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then(cache => {
-                console.log('Opened cache');
-                return cache.addAll(urlsToCache);
-            })
-    );
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(urlsToCache))
+  );
 });
 
-// フェッチ
+// フェッチ時
 self.addEventListener('fetch', event => {
-    event.respondWith(
-        caches.match(event.request)
-            .then(response => {
-                // キャッシュがあればそれを返す
-                if (response) {
-                    return response;
-                }
-                
-                // なければネットワークから取得
-                return fetch(event.request).then(response => {
-                    // 正常なレスポンスでない場合はそのまま返す
-                    if (!response || response.status !== 200 || response.type !== 'basic') {
-                        return response;
-                    }
-                    
-                    // レスポンスをクローンしてキャッシュに保存
-                    const responseToCache = response.clone();
-                    caches.open(CACHE_NAME)
-                        .then(cache => {
-                            cache.put(event.request, responseToCache);
-                        });
-                    
-                    return response;
-                });
-            })
-            .catch(() => {
-                // オフライン時のフォールバック
-                return caches.match('./index.html');
-            })
-    );
+  // POSTリクエストやAPIリクエストはキャッシュしない
+  if (event.request.method !== 'GET' || event.request.url.includes('/.netlify/functions/')) {
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => {
+        // キャッシュがあればそれを返す、なければネットワークから取得
+        return response || fetch(event.request).then(fetchResponse => {
+          // GETリクエストのみキャッシュに追加
+          if (event.request.method === 'GET' && !event.request.url.includes('/.netlify/functions/')) {
+            return caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, fetchResponse.clone());
+              return fetchResponse;
+            });
+          }
+          return fetchResponse;
+        });
+      })
+  );
 });
 
-// アクティベート
+// アクティベート時
 self.addEventListener('activate', event => {
-    const cacheWhitelist = [CACHE_NAME];
-    event.waitUntil(
-        caches.keys().then(cacheNames => {
-            return Promise.all(
-                cacheNames.map(cacheName => {
-                    if (cacheWhitelist.indexOf(cacheName) === -1) {
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
         })
-    );
+      );
+    })
+  );
 });
-
-// バックグラウンド同期
-self.addEventListener('sync', event => {
-    if (event.tag === 'sync-data') {
-        event.waitUntil(syncData());
-    }
-});
-
-async function syncData() {
-    // 将来的にサーバーとの同期処理を実装
-    console.log('Background sync triggered');
-}
