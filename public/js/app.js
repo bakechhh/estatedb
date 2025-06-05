@@ -16,31 +16,30 @@ const EstateApp = {
                 if (typeof Storage.migrateDataWithStaffId === 'function') {
                     Storage.migrateDataWithStaffId();
                     localStorage.setItem('data_migrated_with_staff', 'true');
-                } else {
-                    console.warn('Migration method not found');
                 }
             }
         } catch (error) {
             console.error('Migration error:', error);
         }
+        
         this.setupTheme();
         this.setupTabs();
         this.setupEventListeners();
         this.checkNotifications();
         
-        // 各モジュールの初期化
-        Dashboard.init();
+        // 各モジュールの初期化（Dashboardは非同期）
+        Dashboard.init().catch(error => console.error('Dashboard init error:', error));
         Inventory.init();
         Sales.init();
         Transactions.init();
-        Yearly.init();      // 年間推移の初期化
+        Yearly.init();
         Reports.init();
         Export.init();
         Notifications.init();
         Calendar.init();
-        Goals.init();      // 目標管理の初期化
-        Todos.init();      // TODO管理の初期化
-        Memos.init();      // メモ管理の初期化
+        Goals.init();
+        Todos.init();
+        Memos.init();
         
         // 定期的な通知チェック（5分ごと）
         this.notificationCheckInterval = setInterval(() => {

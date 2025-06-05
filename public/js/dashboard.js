@@ -2,16 +2,13 @@
 const Dashboard = {
    currentView: 'store', // デフォルトは店舗全体
    
-   init() {
+   async init() {
         this.setupViewToggle();
-        this.refresh();
-        
-        // スタッフ実績カードの表示制御
-        this.toggleStaffPerformanceCard();
-        
+        await this.refresh(); // awaitを追加
         if (typeof Calendar !== 'undefined') {
             Calendar.render();
         }
+        // TODOウィジェットを表示
         if (typeof Todos !== 'undefined') {
             Todos.renderTodoWidget();
         }
@@ -44,7 +41,7 @@ const Dashboard = {
        });
    },
 
-   refresh() {
+   async refresh() {
         this.updateSummary();
         this.updateDeadlineAlerts();
         this.updateRecentTransactions();
@@ -53,7 +50,7 @@ const Dashboard = {
         
         // マネージャーの場合はスタッフ実績も更新
         if (Permissions.isManager()) {
-            this.updateStaffPerformance();
+            await this.updateStaffPerformance(); // awaitを追加
         }
     },
 
@@ -68,30 +65,35 @@ const Dashboard = {
         }
     },
     
-    updateStaffPerformance() {
+    async updateStaffPerformance() {
         const container = document.getElementById('staff-performance-summary');
         if (!container) return;
         
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        const performance = Staff.getStaffPerformance(currentMonth);
-        
-        // 売上順にソート
-        performance.sort((a, b) => b.totalRevenue - a.totalRevenue);
-        
-        container.innerHTML = `
-            <div class="staff-performance-list">
-                ${performance.slice(0, 3).map((staff, index) => `
-                    <div class="staff-performance-item">
-                        <div class="staff-rank">${index + 1}位</div>
-                        <div class="staff-info">
-                            <div class="staff-name">${staff.name}</div>
-                            <div class="staff-revenue">${EstateApp.formatCurrency(staff.totalRevenue)}</div>
+        try {
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            const performance = await Staff.getStaffPerformance(currentMonth); // awaitを追加
+            
+            // 売上順にソート
+            performance.sort((a, b) => b.totalRevenue - a.totalRevenue);
+            
+            container.innerHTML = `
+                <div class="staff-performance-list">
+                    ${performance.slice(0, 3).map((staff, index) => `
+                        <div class="staff-performance-item">
+                            <div class="staff-rank">${index + 1}位</div>
+                            <div class="staff-info">
+                                <div class="staff-name">${staff.name}</div>
+                                <div class="staff-revenue">${EstateApp.formatCurrency(staff.totalRevenue)}</div>
+                            </div>
+                            <div class="staff-deals">${staff.dealCount}件</div>
                         </div>
-                        <div class="staff-deals">${staff.dealCount}件</div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
+                    `).join('')}
+                </div>
+            `;
+        } catch (error) {
+            console.error('Staff performance update error:', error);
+            container.innerHTML = '<p class="no-data">スタッフ実績を取得できませんでした</p>';
+        }
     },
 
    updateSummary() {
