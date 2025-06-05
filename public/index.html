@@ -466,9 +466,10 @@
                     <select id="yearly-year">
                         <!-- 年度選択オプションがJavaScriptで動的に生成される -->
                     </select>
+                    <div id="yearly-view-toggle"></div> <!-- 追加 -->
                     <button id="refresh-yearly-btn" class="primary-btn">更新</button>
                 </div>
-            
+
                 <div id="yearly-content" class="yearly-content">
                     <!-- 年間推移データがここに表示される -->
                 </div>
@@ -482,6 +483,7 @@
                         <option value="year">今年</option>
                         <option value="custom">期間指定</option>
                     </select>
+                    <div id="report-view-toggle"></div> <!-- 追加 -->
                     <div id="custom-period" style="display: none;">
                         <input type="date" id="report-start-date">
                         <span>〜</span>

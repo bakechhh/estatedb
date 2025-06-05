@@ -1,7 +1,30 @@
 // reports.js - レポート機能
 const Reports = {
+    currentView: 'store', // 追加
+    
     init() {
         this.setupEventListeners();
+        this.setupViewToggle(); // 追加
+    },
+    setupViewToggle() {
+        const container = document.getElementById('report-view-toggle');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="view-toggle">
+                <button class="toggle-btn active" data-view="store">店舗全体</button>
+                <button class="toggle-btn" data-view="personal">個人</button>
+            </div>
+        `;
+
+        container.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                container.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                this.currentView = e.target.dataset.view;
+            });
+        });
     },
 
     setupEventListeners() {
@@ -25,9 +48,14 @@ const Reports = {
         const period = document.getElementById('report-period').value;
         const { startDate, endDate } = this.getPeriodDates(period);
         
-        // データ取得
-        const sales = this.filterSalesByPeriod(Storage.getSales(), startDate, endDate);
-        const properties = Storage.getProperties();
+        // ビューに応じてデータを取得
+        const sales = this.currentView === 'personal'
+            ? this.filterSalesByPeriod(Storage.getPersonalSales(), startDate, endDate)
+            : this.filterSalesByPeriod(Storage.getSales(), startDate, endDate);
+            
+        const properties = this.currentView === 'personal'
+            ? Storage.getPersonalProperties()
+            : Storage.getProperties();
         
         // レポート生成
         const reportContent = document.getElementById('report-content');

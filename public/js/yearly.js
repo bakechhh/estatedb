@@ -1,12 +1,37 @@
 // yearly.js - 年間推移機能
 const Yearly = {
     currentYear: new Date().getFullYear(),
+    currentView: 'store', // 追加
 
     init() {
         this.setupEventListeners();
         this.setupYearSelector();
+        this.setupViewToggle(); // 追加
         this.renderYearlyReport();
     },
+
+    setupViewToggle() {
+        const container = document.getElementById('yearly-view-toggle');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="view-toggle">
+                <button class="toggle-btn active" data-view="store">店舗全体</button>
+                <button class="toggle-btn" data-view="personal">個人</button>
+            </div>
+        `;
+
+        container.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                container.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                this.currentView = e.target.dataset.view;
+                this.renderYearlyReport();
+            });
+        });
+    },
+
 
     setupEventListeners() {
         const refreshBtn = document.getElementById('refresh-yearly-btn');
@@ -121,7 +146,10 @@ const Yearly = {
     },
 
     calculateYearlyData() {
-        const sales = Storage.getSales();
+        const sales = this.currentView === 'personal' 
+            ? Storage.getPersonalSales() 
+            : Storage.getSales();
+            
         const yearData = {
             monthly: {},
             yearTotal: { sales: 0, collected: 0, collectionRate: 0 },

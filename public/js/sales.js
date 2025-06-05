@@ -374,46 +374,49 @@ const Sales = {
    },
 
    saveRenovationSale() {
-       const dealName = document.getElementById('reno-deal-name').value;
-       const cost = parseInt(document.getElementById('reno-cost').value);
-       const price = parseInt(document.getElementById('reno-price').value);
-       const profit = price - cost;
-       
-       const sale = {
-           type: 'renovation',
-           saleNumber: document.getElementById('reno-sale-number').value || null,
-           dealName,
-           propertyName: document.getElementById('reno-property-name').value,
-           date: document.getElementById('reno-date').value,
-           collectionDate: document.getElementById('reno-collection-date').value || null,
-           content: document.getElementById('reno-content').value,
-           cost,
-           price,
-           profit,
-           contractor: document.getElementById('reno-contractor').value,
-           collectionStatus: document.getElementById('reno-collection-date').value ? 'collected' : 'pending'
-       };
-       
-       Storage.saveSale(sale);
-       
-       // エフェクト表示
-       if (typeof Effects !== 'undefined') {
-           Effects.showSaveEffect(profit, true);
-       }
-       
-       // フォームリセット
-       document.getElementById('renovation-form').reset();
-       const today = new Date().toISOString().split('T')[0];
-       document.getElementById('reno-date').value = today;
-       
-       EstateApp.showToast('リフォーム売上を登録しました');
-       
-      // 画面を更新
-      Dashboard.refresh();
-      if (typeof Calendar !== 'undefined') {
-          Calendar.render();
-      }
-   },
+        const dealName = document.getElementById('reno-deal-name').value;
+        const propertyName = document.getElementById('reno-property-name').value; // 修正
+        const cost = parseInt(document.getElementById('reno-cost').value);
+        const price = parseInt(document.getElementById('reno-price').value);
+        const profit = price - cost;
+        
+        const sale = {
+            type: 'renovation',
+            saleNumber: document.getElementById('reno-sale-number').value || null,
+            dealName,
+            propertyName: propertyName, // 修正: 正しい変数名
+            customerName: propertyName, // 追加: リフォームでは物件名を顧客名としても保存
+            date: document.getElementById('reno-date').value,
+            collectionDate: document.getElementById('reno-collection-date').value || null,
+            content: document.getElementById('reno-content').value,
+            cost,
+            price,
+            profit,
+            contractor: document.getElementById('reno-contractor').value,
+            collectionStatus: document.getElementById('reno-collection-date').value ? 'collected' : 'pending',
+            staffId: Permissions.getCurrentStaffId() // 追加
+        };
+        
+        Storage.saveSale(sale);
+        
+        // エフェクト表示
+        if (typeof Effects !== 'undefined') {
+            Effects.showSaveEffect(profit, true);
+        }
+        
+        // フォームリセット
+        document.getElementById('renovation-form').reset();
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('reno-date').value = today;
+        
+        EstateApp.showToast('リフォーム売上を登録しました');
+        
+        // 画面を更新
+        Dashboard.refresh();
+        if (typeof Calendar !== 'undefined') {
+            Calendar.render();
+        }
+    },
 
    saveOtherSale() {
        const dealName = document.getElementById('other-deal-name').value;

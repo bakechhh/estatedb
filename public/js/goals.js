@@ -59,7 +59,7 @@ const Goals = {
         }
     },
     
-    setGoal(type, period, targetAmount, targetContracts, targetMediations) {
+    setGoal(type, period, targetAmount, targetContracts, targetMediations, staffId = null) {
         const goal = {
             id: Date.now().toString(),
             type,
@@ -67,11 +67,12 @@ const Goals = {
             targetAmount,
             targetContracts,
             targetMediations,
+            staffId, // 個人目標の場合はstaffId、店舗目標の場合はnull
             createdAt: new Date().toISOString()
         };
         
         Storage.saveGoal(goal);
-        EstateApp.showToast('目標を設定しました');
+        EstateApp.showToast(`${staffId ? '個人' : '店舗'}目標を設定しました`);
     },
 
     showEnhancedSuccessAnimation(sale) {
@@ -108,29 +109,38 @@ const Goals = {
         modal.style.display = 'flex';
         
         const currentMonth = new Date().toISOString().slice(0, 7);
-        const currentGoal = Storage.getGoals().find(g => g.period === currentMonth && g.type === 'monthly');
+        
+        // 個人目標か店舗目標かを判定
+        const isPersonalGoal = Dashboard.currentView === 'personal';
+        const staffId = isPersonalGoal ? Permissions.getCurrentStaffId() : null;
+        
+        const currentGoal = Storage.getGoals().find(g => 
+            g.period === currentMonth && 
+            g.type === 'monthly' &&
+            g.staffId === staffId
+        );
         
         modal.innerHTML = `
             <div class="modal-content">
-                <h3>🎯 月間目標設定</h3>
+                <h3>🎯 ${isPersonalGoal ? '個人' : '店舗'}月間目標設定</h3>
                 <form id="goal-form">
                     <div class="form-group">
                         <label for="goal-amount">目標売上金額（円）</label>
                         <input type="number" id="goal-amount" required min="0" 
-                               value="${currentGoal?.targetAmount || ''}" 
-                               placeholder="例：5000000">
+                            value="${currentGoal?.targetAmount || ''}" 
+                            placeholder="例：5000000">
                     </div>
                     <div class="form-group">
                         <label for="goal-contracts">目標契約件数</label>
                         <input type="number" id="goal-contracts" min="0" 
-                               value="${currentGoal?.targetContracts || ''}" 
-                               placeholder="例：5">
+                            value="${currentGoal?.targetContracts || ''}" 
+                            placeholder="例：5">
                     </div>
                     <div class="form-group">
                         <label for="goal-mediations">目標媒介獲得数</label>
                         <input type="number" id="goal-mediations" min="0" 
-                               value="${currentGoal?.targetMediations || ''}" 
-                               placeholder="例：10">
+                            value="${currentGoal?.targetMediations || ''}" 
+                            placeholder="例：10">
                     </div>
                     <div class="modal-actions">
                         <button type="submit" class="primary-btn">設定</button>
@@ -153,7 +163,7 @@ const Goals = {
             const contracts = parseInt(document.getElementById('goal-contracts').value) || 0;
             const mediations = parseInt(document.getElementById('goal-mediations').value) || 0;
             
-            this.setGoal('monthly', currentMonth, amount, contracts, mediations);
+            this.setGoal('monthly', currentMonth, amount, contracts, mediations, staffId);
             modal.remove();
             Dashboard.updateGoalProgress();
         });
