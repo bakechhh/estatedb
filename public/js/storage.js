@@ -11,10 +11,89 @@ const Storage = {
         TODOS: 'estate_todos'
     },
 
+    // 個人の物件統計を取得
+    getPersonalPropertyStats() {
+        const staffId = Permissions.getCurrentStaffId();
+        const properties = this.getProperties().filter(p => p.staffId === staffId);
+        
+        const stats = {
+            total: properties.length,
+            activeCount: 0,
+            sellerCount: 0,
+            exclusiveCount: 0,
+            generalCount: 0,
+            otherModeCount: 0,
+            sellerValue: 0
+        };
+        
+        properties.forEach(property => {
+            // アクティブな物件の統計
+            if (property.status === 'active' || property.status === 'negotiating') {
+                stats.activeCount++;
+                
+                // 取引様態ごとの統計
+                switch (property.transactionMode) {
+                    case 'seller':
+                        stats.sellerCount++;
+                        stats.sellerValue += property.sellingPrice || 0;
+                        break;
+                    case 'exclusive':
+                    case 'special':
+                        stats.exclusiveCount++;
+                        break;
+                    case 'general':
+                        stats.generalCount++;
+                        break;
+                    default:
+                        stats.otherModeCount++;
+                        break;
+                }
+            }
+        });
+        
+        return stats;
+    },
+
+    // 個人の期限通知を取得
+    getPersonalUpcomingDeadlines(days = 30) {
+        const staffId = Permissions.getCurrentStaffId();
+        const allDeadlines = this.getUpcomingDeadlines(days);
+        
+        return allDeadlines.filter(deadline => {
+            if (deadline.property) {
+                return deadline.property.staffId === staffId;
+            }
+            if (deadline.sale) {
+                return deadline.sale.staffId === staffId;
+            }
+            return false;
+        });
+    },
+
+    // 個人の月次媒介獲得物件を取得
+    getPersonalMonthlyMediationProperties(yearMonth) {
+        const staffId = Permissions.getCurrentStaffId();
+        const allProperties = this.getMonthlyMediationProperties(yearMonth);
+        return allProperties.filter(property => property.staffId === staffId);
+    },
+
     // 物件データ
     getProperties() {
         const data = localStorage.getItem(this.KEYS.PROPERTIES);
         return data ? JSON.parse(data) : [];
+    },
+
+    // 個人データのみ取得するメソッドを追加
+    getPersonalSales() {
+        const sales = this.getSales();
+        const staffId = Permissions.getCurrentStaffId();
+        return sales.filter(sale => sale.staffId === staffId);
+    },
+
+    getPersonalProperties() {
+        const properties = this.getProperties();
+        const staffId = Permissions.getCurrentStaffId();
+        return properties.filter(property => property.staffId === staffId);
     },
 
     saveProperty(property) {

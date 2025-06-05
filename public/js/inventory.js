@@ -244,8 +244,12 @@ const Inventory = {
                     ${this.getDeadlineWarning(property)}
                     <div class="property-actions" onclick="event.stopPropagation()">
                         <button class="info-btn" onclick="Memos.showMemoModal('property', '${property.id}', '${property.name}')">メモ</button>
-                        <button class="secondary-btn" onclick="Inventory.showPropertyModal(${JSON.stringify(property).replace(/"/g, '&quot;')})">編集</button>
-                        <button class="danger-btn" onclick="Inventory.deleteProperty('${property.id}')">削除</button>
+                        ${Permissions.canEditProperty(property) ? `
+                            <button class="secondary-btn" onclick="Inventory.showPropertyModal(${JSON.stringify(property).replace(/"/g, '&quot;')})">編集</button>
+                            <button class="danger-btn" onclick="Inventory.deleteProperty('${property.id}')">削除</button>
+                        ` : `
+                            <button class="secondary-btn" disabled style="opacity: 0.5; cursor: not-allowed;">編集不可</button>
+                        `}
                     </div>
                 </div>
             `;

@@ -316,6 +316,7 @@ const Sales = {
        
        const sale = {
            type: 'realestate',
+           staffId: Permissions.getCurrentStaffId(),
            saleNumber: document.getElementById('sale-number').value || null,
            dealName,
            propertyId,

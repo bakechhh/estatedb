@@ -57,12 +57,24 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // トークン生成
-    const token = Buffer.from(JSON.stringify({
+    // 権限設定
+    const permissions = {
+      canEditAll: staff.role === 'manager',
+      canSetStaffGoals: staff.role === 'manager',
+      canViewAllData: staff.role === 'manager',
+      canEditOwnData: true
+    };
+
+    // トークン生成（権限情報を含む）
+    const tokenData = {
       storeId,
       staffId,
+      role: staff.role,
+      permissions,
       exp: Date.now() + 24 * 60 * 60 * 1000
-    })).toString('base64');
+    };
+    
+    const token = Buffer.from(JSON.stringify(tokenData)).toString('base64');
 
     return {
       statusCode: 200,
@@ -72,7 +84,8 @@ exports.handler = async (event, context) => {
         token,
         staff: {
           name: staff.name,
-          role: staff.role
+          role: staff.role,
+          permissions
         }
       })
     };

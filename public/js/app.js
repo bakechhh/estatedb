@@ -4,6 +4,7 @@ const EstateApp = {
     notificationCheckInterval: null,
 
     init() {
+        Permissions.init();
         this.setupTheme();
         this.setupTabs();
         this.setupEventListeners();
