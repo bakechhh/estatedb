@@ -11,10 +11,16 @@
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
     <script>
-        // 認証チェック
-        if (!sessionStorage.getItem('auth_token')) {
-            window.location.href = '/login.html';
-        }
+        // ページが完全に読み込まれてからチェック
+        window.addEventListener('load', function() {
+            // ログインページ以外でのみチェック
+            if (!window.location.pathname.includes('login.html')) {
+                if (!sessionStorage.getItem('auth_token')) {
+                    // 絶対パスでリダイレクト
+                    window.location.replace(window.location.origin + '/login.html');
+                }
+            }
+        });
     </script>
 </head>
 <body>
