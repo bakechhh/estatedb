@@ -12,25 +12,11 @@ exports.handler = async (event, context) => {
     }
 
     try {
-        // 環境変数のチェック
-        if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-            console.error('Missing Supabase credentials');
-            return {
-                statusCode: 500,
-                headers,
-                body: JSON.stringify({ 
-                    error: 'サーバー設定エラー',
-                    details: 'Supabase credentials not configured'
-                })
-            };
-        }
-
         const supabase = createClient(
             process.env.SUPABASE_URL,
             process.env.SUPABASE_ANON_KEY
         );
 
-        // 認証チェック
         const token = event.headers.authorization?.replace('Bearer ', '');
         if (!token) {
             return {
@@ -40,94 +26,55 @@ exports.handler = async (event, context) => {
             };
         }
 
-        // トークンのデコード
-        let tokenData;
-        try {
-            tokenData = JSON.parse(Buffer.from(token, 'base64').toString());
-        } catch (e) {
-            return {
-                statusCode: 401,
-                headers,
-                body: JSON.stringify({ error: '無効なトークン' })
-            };
-        }
-
+        const tokenData = JSON.parse(Buffer.from(token, 'base64').toString());
         const { storeId, staffId } = tokenData;
-        
-        // リクエストボディの解析
-        let requestBody;
-        try {
-            requestBody = JSON.parse(event.body);
-        } catch (e) {
-            return {
-                statusCode: 400,
-                headers,
-                body: JSON.stringify({ error: '無効なリクエスト' })
-            };
-        }
+        const { data, action } = JSON.parse(event.body);
 
-        const { action, data, version, lastSync } = requestBody;
-
-        // アクションに応じた処理
         if (action === 'save') {
-            const newVersion = Date.now().toString();
-            
-            // データが既に文字列化されているかチェック
-            const dataToStore = typeof data === 'string' ? data : JSON.stringify(data);
-            
-            // upsert（存在すれば更新、なければ挿入）を使用
-            const { error } = await supabase
+            // まず既存データを削除してから新規挿入（完全な更新）
+            const { error: deleteError } = await supabase
                 .from('store_data')
-                .upsert({
+                .delete()
+                .eq('store_id', storeId);
+
+            if (deleteError) {
+                console.error('Delete error:', deleteError);
+            }
+
+            // 新しいデータを挿入
+            const { error: insertError } = await supabase
+                .from('store_data')
+                .insert({
                     store_id: storeId,
-                    data: dataToStore,
+                    data: JSON.stringify(data),
                     last_updated_by: staffId,
-                    updated_at: new Date().toISOString(),
-                    version: newVersion
-                }, {
-                    onConflict: 'store_id'
+                    updated_at: new Date().toISOString()
                 });
 
-            if (error) {
-                console.error('Save error:', error);
-                throw error;
+            if (insertError) {
+                // コンフリクトエラーの場合は更新を試みる
+                if (insertError.code === '23505') {
+                    const { error: updateError } = await supabase
+                        .from('store_data')
+                        .update({
+                            data: JSON.stringify(data),
+                            last_updated_by: staffId,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('store_id', storeId);
+
+                    if (updateError) {
+                        throw updateError;
+                    }
+                } else {
+                    throw insertError;
+                }
             }
 
             return {
                 statusCode: 200,
                 headers,
-                body: JSON.stringify({ 
-                    success: true,
-                    version: newVersion
-                })
-            };
-            
-        } else if (action === 'check') {
-            const { data: storeData, error } = await supabase
-                .from('store_data')
-                .select('updated_at, last_updated_by, version')
-                .eq('store_id', storeId)
-                .single();
-            
-            if (error && error.code !== 'PGRST116') {
-                console.error('Check error:', error);
-                throw error;
-            }
-            
-            const hasUpdate = storeData && 
-                            lastSync && 
-                            new Date(storeData.updated_at) > new Date(lastSync) &&
-                            storeData.last_updated_by !== staffId;
-            
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({ 
-                    success: true,
-                    hasUpdate,
-                    updatedBy: storeData?.last_updated_by,
-                    version: storeData?.version
-                })
+                body: JSON.stringify({ success: true })
             };
             
         } else if (action === 'load') {
@@ -138,30 +85,17 @@ exports.handler = async (event, context) => {
                 .single();
 
             if (error && error.code !== 'PGRST116') {
-                console.error('Load error:', error);
                 throw error;
             }
 
             if (storeData) {
-                // データが文字列の場合はパース
-                let parsedData;
-                try {
-                    parsedData = typeof storeData.data === 'string' 
-                        ? JSON.parse(storeData.data) 
-                        : storeData.data;
-                } catch (e) {
-                    console.error('Data parse error:', e);
-                    parsedData = storeData.data;
-                }
-
                 return {
                     statusCode: 200,
                     headers,
                     body: JSON.stringify({ 
                         success: true, 
-                        data: parsedData,
-                        lastUpdated: storeData.updated_at,
-                        version: storeData.version
+                        data: JSON.parse(storeData.data),
+                        lastUpdated: storeData.updated_at
                     })
                 };
             }
@@ -169,10 +103,7 @@ exports.handler = async (event, context) => {
             return {
                 statusCode: 200,
                 headers,
-                body: JSON.stringify({ 
-                    success: true, 
-                    data: null 
-                })
+                body: JSON.stringify({ success: true, data: null })
             };
         }
 
@@ -183,13 +114,13 @@ exports.handler = async (event, context) => {
         };
         
     } catch (error) {
-        console.error('Handler error:', error);
+        console.error('Sync error:', error);
         return {
             statusCode: 500,
             headers,
             body: JSON.stringify({ 
                 error: 'サーバーエラー',
-                details: process.env.NODE_ENV === 'development' ? error.message : undefined
+                details: error.message 
             })
         };
     }
