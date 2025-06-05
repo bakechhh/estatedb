@@ -731,34 +731,35 @@ const Storage = {
    },
 
    importData(data) {
-       try {
-           if (data.properties) {
-               localStorage.setItem(this.KEYS.PROPERTIES, JSON.stringify(data.properties));
-           }
-           if (data.sales) {
-               localStorage.setItem(this.KEYS.SALES, JSON.stringify(data.sales));
-           }
-           if (data.settings) {
-               localStorage.setItem(this.KEYS.SETTINGS, JSON.stringify(data.settings));
-           }
-           if (data.notifications) {
-               localStorage.setItem(this.KEYS.NOTIFICATIONS, JSON.stringify(data.notifications));
-           }
-           if (data.goals) {
-               localStorage.setItem(this.KEYS.GOALS, JSON.stringify(data.goals));
-           }
-           if (data.memos) {
-               localStorage.setItem(this.KEYS.MEMOS, JSON.stringify(data.memos));
-           }
-           if (data.todos) {
-               localStorage.setItem(this.KEYS.TODOS, JSON.stringify(data.todos));
-           }
-           return true;
-       } catch (error) {
-           console.error('Import error:', error);
-           return false;
-       }
-   },
+        try {
+            // 各データタイプごとに存在チェックをしてから保存
+            if (data.properties && Array.isArray(data.properties)) {
+                localStorage.setItem(this.KEYS.PROPERTIES, JSON.stringify(data.properties));
+            }
+            if (data.sales && Array.isArray(data.sales)) {
+                localStorage.setItem(this.KEYS.SALES, JSON.stringify(data.sales));
+            }
+            if (data.settings && typeof data.settings === 'object') {
+                localStorage.setItem(this.KEYS.SETTINGS, JSON.stringify(data.settings));
+            }
+            if (data.notifications && Array.isArray(data.notifications)) {
+                localStorage.setItem(this.KEYS.NOTIFICATIONS, JSON.stringify(data.notifications));
+            }
+            if (data.goals && Array.isArray(data.goals)) {
+                localStorage.setItem(this.KEYS.GOALS, JSON.stringify(data.goals));
+            }
+            if (data.memos && Array.isArray(data.memos)) {
+                localStorage.setItem(this.KEYS.MEMOS, JSON.stringify(data.memos));
+            }
+            if (data.todos && Array.isArray(data.todos)) {
+                localStorage.setItem(this.KEYS.TODOS, JSON.stringify(data.todos));
+            }
+            return true;
+        } catch (error) {
+            console.error('Import error:', error);
+            return false;
+        }
+    },
 
    // データクリア
    clearAllData() {

@@ -752,11 +752,12 @@
             }
 
             try {
-                // 同期中の表示
+                // 同期前にローカルデータをバックアップ
+                const localData = Storage.exportData();
+                
                 EstateApp.showToast('同期中...', 'info');
                 
                 // データを保存
-                const data = Storage.exportData();
                 const response = await fetch('/.netlify/functions/sync-data', {
                     method: 'POST',
                     headers: {
@@ -765,7 +766,7 @@
                     },
                     body: JSON.stringify({
                         action: 'save',
-                        data: data
+                        data: localData
                     })
                 });
 

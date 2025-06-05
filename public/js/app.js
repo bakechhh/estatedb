@@ -4,23 +4,25 @@ const EstateApp = {
     notificationCheckInterval: null,
 
     init() {
-        // 権限管理の初期化
+        // 権限管理の初期化（最初に実行）
         Permissions.init();
         
         // スタッフ管理の初期化
         Staff.init();
         
-        // 既存データの移行（初回のみ）
-        try {
-            if (!localStorage.getItem('data_migrated_with_staff')) {
-                if (typeof Storage.migrateDataWithStaffId === 'function') {
-                    Storage.migrateDataWithStaffId();
-                    localStorage.setItem('data_migrated_with_staff', 'true');
+        // 権限情報が確実に読み込まれてから移行処理を実行
+        setTimeout(() => {
+            try {
+                if (!localStorage.getItem('data_migrated_with_staff')) {
+                    if (typeof Storage.migrateDataWithStaffId === 'function' && Permissions.getCurrentStaffId()) {
+                        Storage.migrateDataWithStaffId();
+                        localStorage.setItem('data_migrated_with_staff', 'true');
+                    }
                 }
+            } catch (error) {
+                console.error('Migration error:', error);
             }
-        } catch (error) {
-            console.error('Migration error:', error);
-        }
+        }, 100);
         
         this.setupTheme();
         this.setupTabs();
@@ -493,6 +495,16 @@ window.addEventListener('DOMContentLoaded', async () => {
     const token = sessionStorage.getItem('auth_token');
     if (token) {
         try {
+            // ローカルデータのバックアップ
+            const localBackup = {
+                properties: Storage.getProperties(),
+                sales: Storage.getSales(),
+                goals: Storage.getGoals(),
+                memos: Storage.getMemos(),
+                todos: Storage.getTodos(),
+                notifications: Storage.getNotifications()
+            };
+            
             const response = await fetch('/.netlify/functions/sync-data', {
                 method: 'POST',
                 headers: {
@@ -504,16 +516,32 @@ window.addEventListener('DOMContentLoaded', async () => {
 
             const result = await response.json();
             if (result.success && result.data) {
-                Storage.importData(result.data);
+                // サーバーデータが空の場合はローカルデータを保持
+                const serverData = result.data;
+                const mergedData = {
+                    properties: serverData.properties?.length > 0 ? serverData.properties : localBackup.properties,
+                    sales: serverData.sales?.length > 0 ? serverData.sales : localBackup.sales,
+                    goals: serverData.goals?.length > 0 ? serverData.goals : localBackup.goals,
+                    memos: serverData.memos?.length > 0 ? serverData.memos : localBackup.memos,
+                    todos: serverData.todos?.length > 0 ? serverData.todos : localBackup.todos,
+                    notifications: serverData.notifications || localBackup.notifications,
+                    settings: serverData.settings || Storage.getSettings()
+                };
+                
+                Storage.importData(mergedData);
                 EstateApp.showToast('データを読み込みました');
                 
                 // バージョン情報を保存
                 if (result.version) {
                     localStorage.setItem('data_version', result.version);
                 }
+            } else {
+                // サーバーからデータが取得できない場合はローカルデータを維持
+                console.log('サーバーデータが取得できないため、ローカルデータを使用します');
             }
         } catch (error) {
             console.error('データ読み込みエラー:', error);
+            EstateApp.showToast('ローカルデータを使用します', 'info');
         }
     }
 });
