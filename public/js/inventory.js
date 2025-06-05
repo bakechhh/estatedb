@@ -214,7 +214,9 @@ const Inventory = {
                         <div>
                             <div class="property-title">${property.name}</div>
                             <div class="property-code">${property.code}</div>
-                            <div class="property-staff">担当: ${Staff.getStaffName(property.staffId || '未設定')}</div>
+                            <div class="property-staff">
+                                担当: <span data-staff-id="${property.staffId || ''}">${Staff.getStaffNameSync(property.staffId)}</span>
+                            </div>
                         </div>
                         <span class="property-status ${statusClass}">${statusText}</span>
                     </div>
