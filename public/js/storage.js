@@ -17,6 +17,62 @@ const Storage = {
        return data ? JSON.parse(data) : [];
    },
 
+
+    // 既存データに担当者IDを付与する移行処理
+    migrateDataWithStaffId() {
+        const currentStaffId = Permissions.getCurrentStaffId();
+        
+        if (!currentStaffId) {
+            console.warn('Migration skipped: No staff ID found');
+            return;
+        }
+        
+        // 売上データの移行
+        const sales = this.getSales();
+        let salesUpdated = false;
+        sales.forEach(sale => {
+            if (!sale.staffId) {
+                sale.staffId = currentStaffId;
+                salesUpdated = true;
+            }
+        });
+        if (salesUpdated) {
+            localStorage.setItem(this.KEYS.SALES, JSON.stringify(sales));
+            console.log('Sales data migrated with staff IDs');
+        }
+        
+        // 物件データの移行
+        const properties = this.getProperties();
+        let propertiesUpdated = false;
+        properties.forEach(property => {
+            if (!property.staffId) {
+                property.staffId = currentStaffId;
+                propertiesUpdated = true;
+            }
+        });
+        if (propertiesUpdated) {
+            localStorage.setItem(this.KEYS.PROPERTIES, JSON.stringify(properties));
+            console.log('Properties data migrated with staff IDs');
+        }
+        
+        // 目標データの移行
+        const goals = this.getGoals();
+        let goalsUpdated = false;
+        goals.forEach(goal => {
+            // staffIdがundefinedの場合はnull（店舗目標）として扱う
+            if (goal.staffId === undefined) {
+                goal.staffId = null;
+                goalsUpdated = true;
+            }
+        });
+        if (goalsUpdated) {
+            localStorage.setItem(this.KEYS.GOALS, JSON.stringify(goals));
+            console.log('Goals data migrated');
+        }
+        
+        console.log('Data migration completed');
+    },
+
    saveProperty(property) {
        const properties = this.getProperties();
        

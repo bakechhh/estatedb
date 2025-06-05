@@ -9,10 +9,19 @@ const EstateApp = {
         
         // スタッフ管理の初期化
         Staff.init();
+        
         // 既存データの移行（初回のみ）
-        if (!localStorage.getItem('data_migrated_with_staff')) {
-            Storage.migrateDataWithStaffId();
-            localStorage.setItem('data_migrated_with_staff', 'true');
+        try {
+            if (!localStorage.getItem('data_migrated_with_staff')) {
+                if (typeof Storage.migrateDataWithStaffId === 'function') {
+                    Storage.migrateDataWithStaffId();
+                    localStorage.setItem('data_migrated_with_staff', 'true');
+                } else {
+                    console.warn('Migration method not found');
+                }
+            }
+        } catch (error) {
+            console.error('Migration error:', error);
         }
         this.setupTheme();
         this.setupTabs();
