@@ -31,6 +31,8 @@
             <div class="header-actions">
                 <span id="user-info" style="color: white; font-size: 0.9rem; margin-right: 1rem;"></span>
                 <span id="notification-badge" class="notification-badge" style="display: none;">0</span>
+                <!-- 同期ボタンを追加 -->
+                <button class="icon-btn" onclick="syncData()" aria-label="データ同期">☁️</button>
                 <button class="icon-btn" onclick="Todos.showTodoModal()" aria-label="TODO追加">📝</button>
                 <button class="icon-btn" onclick="Goals.showRanking()" aria-label="ランキング">🏆</button>
                 <button id="notification-btn" class="icon-btn" aria-label="通知">🔔</button>
@@ -718,13 +720,76 @@
             userInfo.textContent = sessionStorage.getItem('store_id') + ' / ' + sessionStorage.getItem('staff_name');
         }
 
-        // ログアウト
+        // ログアウト関数
         function logout() {
             if (confirm('ログアウトしますか？')) {
                 sessionStorage.clear();
                 window.location.href = '/login.html';
             }
         }
+
+        // データ同期関数
+        async function syncData() {
+            const token = sessionStorage.getItem('auth_token');
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            try {
+                // 同期中の表示
+                EstateApp.showToast('同期中...', 'info');
+                
+                // データを保存
+                const data = Storage.exportData();
+                const response = await fetch('/.netlify/functions/sync-data', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'save',
+                        data: data
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    EstateApp.showToast('データを同期しました');
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                console.error('Sync error:', error);
+                EstateApp.showToast('同期に失敗しました', 'danger');
+            }
+        }
+
+        // 起動時にデータ読み込み
+        window.addEventListener('DOMContentLoaded', async () => {
+            const token = sessionStorage.getItem('auth_token');
+            if (token) {
+                try {
+                    const response = await fetch('/.netlify/functions/sync-data', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ action: 'load' })
+                    });
+
+                    const result = await response.json();
+                    if (result.success && result.data) {
+                        Storage.importData(result.data);
+                        EstateApp.showToast('データを読み込みました');
+                    }
+                } catch (error) {
+                    console.error('データ読み込みエラー:', error);
+                }
+            }
+        });
     </script>
 </body>
 </html>

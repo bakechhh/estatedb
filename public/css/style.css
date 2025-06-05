@@ -1997,3 +1997,17 @@ textarea {
         padding: 0.5rem;
     }
 }
+.icon-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: var(--transition);
+    color: white;
+}
+
+.icon-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
