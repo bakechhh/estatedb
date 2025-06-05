@@ -1,4 +1,8 @@
+const { createClient } = require('@supabase/supabase-js');
+
 exports.handler = async (event, context) => {
+  console.log('Auth function called');
+  
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -10,40 +14,77 @@ exports.handler = async (event, context) => {
   }
 
   try {
+    console.log('SUPABASE_URL exists:', !!process.env.SUPABASE_URL);
+    console.log('SUPABASE_ANON_KEY exists:', !!process.env.SUPABASE_ANON_KEY);
+    
+    // Supabase初期化
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY
+    );
+
     const { storeId, staffId, password } = JSON.parse(event.body);
+    console.log('Login attempt:', { storeId, staffId });
 
-    // テスト用の認証
-    if (storeId === 'STORE001' && staffId === 'STAFF001' && password === 'password123') {
-      const token = Buffer.from(JSON.stringify({
-        storeId,
-        staffId,
-        exp: Date.now() + 24 * 60 * 60 * 1000
-      })).toString('base64');
+    // パスワードをハッシュ化
+    const crypto = require('crypto');
+    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+    console.log('Password hash generated');
 
+    // データベースで認証
+    const { data: staff, error } = await supabase
+      .from('staff_auth')
+      .select('*')
+      .eq('store_id', storeId)
+      .eq('staff_id', staffId)
+      .eq('password_hash', passwordHash)
+      .eq('active', true)
+      .single();
+
+    console.log('Query result:', { found: !!staff, error: error?.message });
+
+    if (error || !staff) {
       return {
-        statusCode: 200,
+        statusCode: 401,
         headers,
         body: JSON.stringify({ 
-          success: true, 
-          token,
-          staff: {
-            name: '田中太郎',
-            role: 'manager'
+          error: 'IDまたはパスワードが正しくありません',
+          debug: {
+            queryError: error?.message,
+            staffFound: !!staff
           }
         })
       };
     }
 
+    // トークン生成
+    const token = Buffer.from(JSON.stringify({
+      storeId,
+      staffId,
+      exp: Date.now() + 24 * 60 * 60 * 1000
+    })).toString('base64');
+
     return {
-      statusCode: 401,
+      statusCode: 200,
       headers,
-      body: JSON.stringify({ error: '認証に失敗しました' })
+      body: JSON.stringify({ 
+        success: true, 
+        token,
+        staff: {
+          name: staff.name,
+          role: staff.role
+        }
+      })
     };
   } catch (error) {
+    console.error('Auth error:', error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'サーバーエラー' })
+      body: JSON.stringify({ 
+        error: 'サーバーエラー',
+        details: error.message 
+      })
     };
   }
 };
