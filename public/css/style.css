@@ -2100,3 +2100,41 @@ textarea {
     font-size: 0.9rem;
     color: var(--text-secondary);
 }
+/* 更新通知 */
+.update-notification {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    background-color: var(--bg-primary);
+    border: 2px solid var(--info-color);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    z-index: 1001;
+    animation: slideInRight 0.3s ease;
+}
+
+.update-notification-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.update-notification-content span {
+    font-weight: 500;
+}
+
+.update-notification-content .primary-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+.update-notification-content .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 0;
+    margin-left: 0.5rem;
+}

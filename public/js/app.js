@@ -334,6 +334,64 @@ const EstateApp = {
         }
     },
 
+    // 最新データを読み込むメソッドを追加
+    async loadLatestData() {
+        const token = sessionStorage.getItem('auth_token');
+        if (!token) return;
+        
+        try {
+            EstateApp.showToast('最新データを取得中...', 'info');
+            
+            const response = await fetch('/.netlify/functions/sync-data', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ action: 'load' })
+            });
+            
+            const result = await response.json();
+            if (result.success && result.data) {
+                Storage.importData(result.data);
+                
+                // 現在の画面を更新
+                switch (this.currentTab) {
+                    case 'dashboard':
+                        Dashboard.refresh();
+                        Calendar.render();
+                        break;
+                    case 'inventory':
+                        Inventory.renderPropertyList();
+                        break;
+                    case 'transactions':
+                        Transactions.renderTransactionList();
+                        break;
+                    case 'sales':
+                        Sales.updatePropertySelect();
+                        break;
+                    case 'yearly':
+                        Yearly.renderYearlyReport();
+                        break;
+                    case 'reports':
+                        // 必要に応じて更新
+                        break;
+                }
+                
+                EstateApp.showToast('最新データを読み込みました');
+                
+                // 通知を削除
+                const notification = document.querySelector('.update-notification');
+                if (notification) {
+                    notification.remove();
+                }
+            }
+        } catch (error) {
+            console.error('Load latest data error:', error);
+            EstateApp.showToast('データの読み込みに失敗しました', 'danger');
+        }
+    },
+
     // 自動同期の設定
     setupAutoSync() {
         // 3分ごとに同期（サイレント）
@@ -368,12 +426,18 @@ const EstateApp = {
             return;
         }
         
+        // 既存の通知があれば削除
+        const existingNotification = document.querySelector('.update-notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+        
         const notification = document.createElement('div');
         notification.className = 'update-notification';
         notification.innerHTML = `
             <div class="update-notification-content">
-                <span>📢 他のユーザーがデータを更新しました</span>
-                <button class="secondary-btn" onclick="location.reload()">ページを更新</button>
+                <span>📊 他のユーザーがデータを更新しました</span>
+                <button class="primary-btn" onclick="EstateApp.loadLatestData()">最新データを取得</button>
                 <button class="close-btn" onclick="this.closest('.update-notification').remove()">×</button>
             </div>
         `;
@@ -382,7 +446,9 @@ const EstateApp = {
         
         // 10秒後に自動で消す
         setTimeout(() => {
-            notification.remove();
+            if (notification.parentNode) {
+                notification.remove();
+            }
         }, 10000);
     },
 
@@ -548,3 +614,4 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 // グローバルスコープに公開
 window.EstateApp = EstateApp;
+window.EstateApp.loadLatestData = () => EstateApp.loadLatestData();

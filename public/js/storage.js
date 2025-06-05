@@ -11,11 +11,13 @@ const Storage = {
        TODOS: 'estate_todos'
    },
 
-   // 物件データ
-   getProperties() {
-       const data = localStorage.getItem(this.KEYS.PROPERTIES);
-       return data ? JSON.parse(data) : [];
-   },
+   // getProperties も修正（削除されていないものだけ返す）
+    getProperties() {
+        const data = localStorage.getItem(this.KEYS.PROPERTIES);
+        const allProperties = data ? JSON.parse(data) : [];
+        // 削除フラグが立っていないものだけ返す
+        return allProperties.filter(p => !p.deleted);
+    },
 
 
     // 既存データに担当者IDを付与する移行処理
@@ -115,18 +117,29 @@ const Storage = {
        return null;
    },
 
-   deleteProperty(id) {
-       const properties = this.getProperties();
-       const filtered = properties.filter(p => p.id !== id);
-       localStorage.setItem(this.KEYS.PROPERTIES, JSON.stringify(filtered));
-       return true;
-   },
+   // storage.js の deleteProperty メソッドを修正
+    deleteProperty(id) {
+        const properties = this.getProperties();
+        const index = properties.findIndex(p => p.id === id);
+        
+        if (index !== -1) {
+            // 実際に削除せず、削除フラグを立てる
+            properties[index].deleted = true;
+            properties[index].deletedAt = new Date().toISOString();
+            properties[index].updatedAt = new Date().toISOString();
+            
+            localStorage.setItem(this.KEYS.PROPERTIES, JSON.stringify(properties));
+            return true;
+        }
+        return false;
+    },
 
-   // 売上データ
-   getSales() {
-       const data = localStorage.getItem(this.KEYS.SALES);
-       return data ? JSON.parse(data) : [];
-   },
+   // getSales も修正
+    getSales() {
+        const data = localStorage.getItem(this.KEYS.SALES);
+        const allSales = data ? JSON.parse(data) : [];
+        return allSales.filter(s => !s.deleted);
+    },
 
    saveSale(sale) {
        const sales = this.getSales();
@@ -155,12 +168,21 @@ const Storage = {
        return null;
    },
 
-   deleteSale(id) {
-       const sales = this.getSales();
-       const filtered = sales.filter(s => s.id !== id);
-       localStorage.setItem(this.KEYS.SALES, JSON.stringify(filtered));
-       return true;
-   },
+   // deleteSale も同様に修正
+    deleteSale(id) {
+        const sales = this.getSales();
+        const index = sales.findIndex(s => s.id === id);
+        
+        if (index !== -1) {
+            sales[index].deleted = true;
+            sales[index].deletedAt = new Date().toISOString();
+            sales[index].updatedAt = new Date().toISOString();
+            
+            localStorage.setItem(this.KEYS.SALES, JSON.stringify(sales));
+            return true;
+        }
+        return false;
+    },
 
    // 通知データ
    getNotifications() {
@@ -254,10 +276,11 @@ const Storage = {
        return data ? JSON.parse(data) : [];
    },
 
-   getMemo(id) {
-       const memos = this.getMemos();
-       return memos.find(m => m.id === id);
-   },
+   getMemos() {
+        const data = localStorage.getItem(this.KEYS.MEMOS);
+        const allMemos = data ? JSON.parse(data) : [];
+        return allMemos.filter(m => !m.deleted);
+    },
 
    saveMemo(memo) {
        const memos = this.getMemos();
@@ -277,11 +300,19 @@ const Storage = {
    },
 
    deleteMemo(id) {
-       const memos = this.getMemos();
-       const filtered = memos.filter(m => m.id !== id);
-       localStorage.setItem(this.KEYS.MEMOS, JSON.stringify(filtered));
-       return true;
-   },
+        const memos = this.getMemos();
+        const index = memos.findIndex(m => m.id === id);
+        
+        if (index !== -1) {
+            memos[index].deleted = true;
+            memos[index].deletedAt = new Date().toISOString();
+            memos[index].updatedAt = new Date().toISOString();
+            
+            localStorage.setItem(this.KEYS.MEMOS, JSON.stringify(memos));
+            return true;
+        }
+        return false;
+    },
 
    // TODO管理
    getTodos() {
@@ -289,10 +320,11 @@ const Storage = {
        return data ? JSON.parse(data) : [];
    },
 
-   getTodo(id) {
-       const todos = this.getTodos();
-       return todos.find(t => t.id === id);
-   },
+   getTodos() {
+        const data = localStorage.getItem(this.KEYS.TODOS);
+        const allTodos = data ? JSON.parse(data) : [];
+        return allTodos.filter(t => !t.deleted);
+    },
 
    saveTodo(todo) {
        const todos = this.getTodos();
@@ -312,11 +344,19 @@ const Storage = {
    },
 
    deleteTodo(id) {
-       const todos = this.getTodos();
-       const filtered = todos.filter(t => t.id !== id);
-       localStorage.setItem(this.KEYS.TODOS, JSON.stringify(filtered));
-       return true;
-   },
+        const todos = this.getTodos();
+        const index = todos.findIndex(t => t.id === id);
+        
+        if (index !== -1) {
+            todos[index].deleted = true;
+            todos[index].deletedAt = new Date().toISOString();
+            todos[index].updatedAt = new Date().toISOString();
+            
+            localStorage.setItem(this.KEYS.TODOS, JSON.stringify(todos));
+            return true;
+        }
+        return false;
+    },
 
    // ランキング取得
    getRankings(period = 'monthly') {
