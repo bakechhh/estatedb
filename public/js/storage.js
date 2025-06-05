@@ -230,20 +230,23 @@ const Storage = {
    },
    
    saveGoal(goal) {
-       const goals = this.getGoals();
-       const existingIndex = goals.findIndex(g => 
-           g.type === goal.type && g.period === goal.period
-       );
-       
-       if (existingIndex !== -1) {
-           goals[existingIndex] = goal;
-       } else {
-           goals.push(goal);
-       }
-       
-       localStorage.setItem(this.KEYS.GOALS, JSON.stringify(goals));
-       return goal;
-   },
+        const goals = this.getGoals();
+        // 同じ期間・タイプ・スタッフIDの既存目標を探す
+        const existingIndex = goals.findIndex(g => 
+            g.type === goal.type && 
+            g.period === goal.period &&
+            g.staffId === goal.staffId  // nullの場合も正しく比較
+        );
+        
+        if (existingIndex !== -1) {
+            goals[existingIndex] = goal;
+        } else {
+            goals.push(goal);
+        }
+        
+        localStorage.setItem(this.KEYS.GOALS, JSON.stringify(goals));
+        return goal;
+    },
    
    // メモ管理
    getMemos() {

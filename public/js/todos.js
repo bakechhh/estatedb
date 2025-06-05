@@ -12,18 +12,21 @@ const Todos = {
         // TODO関連のイベントリスナー設定
     },
 
-    saveTodo(title, description, dueDate, priority = 'normal', category = 'general', repeat = 'none') {
+    saveTodo(title, description, dueDate, priority = 'normal', category = 'general', repeat = 'none', isShared = false) {
         const todo = {
             id: Date.now().toString(),
             title,
             description,
             dueDate,
-            priority, // 'high', 'normal', 'low'
+            priority,
             category,
-            repeat, // 'none', 'daily', 'weekly', 'monthly'
+            repeat,
             completed: false,
             completedAt: null,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            // 追加フィールド
+            staffId: isShared ? null : Permissions.getCurrentStaffId(), // nullは共有TODO
+            createdBy: Permissions.getCurrentStaffId()
         };
         
         Storage.saveTodo(todo);
@@ -191,20 +194,30 @@ const Todos = {
         const container = document.getElementById('todo-widget');
         if (!container) return;
         
-        const todos = Storage.getTodos()
-            .filter(todo => !todo.completed)
-            .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-            .slice(0, 5);
+        // ビューに応じてTODOを取得
+        let todos = Storage.getTodos().filter(todo => !todo.completed);
+        
+        if (Dashboard.currentView === 'personal') {
+            // 個人ビュー: 自分のTODOのみ
+            const currentStaffId = Permissions.getCurrentStaffId();
+            todos = todos.filter(todo => todo.staffId === currentStaffId);
+        } else {
+            // 店舗ビュー: 共有TODOと自分のTODO
+            const currentStaffId = Permissions.getCurrentStaffId();
+            todos = todos.filter(todo => todo.staffId === null || todo.staffId === currentStaffId);
+        }
+        
+        todos = todos.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate)).slice(0, 5);
         
         container.innerHTML = `
-            <h3>📋 TODO</h3>
+            <h3>📋 TODO${Dashboard.currentView === 'personal' ? '（個人）' : ''}</h3>
             <div class="todo-list">
                 ${todos.length === 0 ? '<p class="no-data">TODOはありません</p>' : ''}
                 ${todos.map(todo => `
                     <div class="todo-item priority-${todo.priority}">
                         <input type="checkbox" id="todo-${todo.id}" onchange="Todos.completeTodo('${todo.id}')">
                         <label for="todo-${todo.id}">
-                            <span class="todo-title">${todo.title}</span>
+                            <span class="todo-title">${todo.title}${todo.staffId === null ? ' 🏢' : ''}</span>
                             <span class="todo-due">${this.formatDueDate(todo.dueDate)}</span>
                         </label>
                     </div>
@@ -254,7 +267,7 @@ const Todos = {
                     <div class="form-group">
                         <label for="todo-due-date">期限</label>
                         <input type="datetime-local" id="todo-due-date" required 
-                               value="${todo ? new Date(todo.dueDate).toISOString().slice(0, 16) : ''}">
+                                value="${todo ? new Date(todo.dueDate).toISOString().slice(0, 16) : ''}">
                     </div>
                     <div class="form-group">
                         <label for="todo-priority">優先度</label>
@@ -283,6 +296,14 @@ const Todos = {
                             <option value="monthly" ${todo?.repeat === 'monthly' ? 'selected' : ''}>毎月</option>
                         </select>
                     </div>
+                    ${Permissions.isManager() ? `
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="todo-shared" ${todo?.staffId === null ? 'checked' : ''}>
+                                店舗全体で共有
+                            </label>
+                        </div>
+                    ` : ''}
                     <div class="modal-actions">
                         <button type="submit" class="primary-btn">${todo ? '更新' : '追加'}</button>
                         <button type="button" class="secondary-btn" onclick="this.closest('.modal').remove()">キャンセル</button>
@@ -307,6 +328,7 @@ const Todos = {
             const priority = document.getElementById('todo-priority').value;
             const category = document.getElementById('todo-category').value;
             const repeat = document.getElementById('todo-repeat').value;
+            const isShared = document.getElementById('todo-shared')?.checked || false;
             
             if (todo) {
                 this.updateTodo(todo.id, {
@@ -315,10 +337,11 @@ const Todos = {
                     dueDate,
                     priority,
                     category,
-                    repeat
+                    repeat,
+                    staffId: isShared ? null : (todo.staffId || Permissions.getCurrentStaffId())
                 });
             } else {
-                this.saveTodo(title, description, dueDate, priority, category, repeat);
+                this.saveTodo(title, description, dueDate, priority, category, repeat, isShared);
             }
             
             modal.remove();

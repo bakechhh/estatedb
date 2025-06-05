@@ -28,9 +28,12 @@ exports.handler = async (event, context) => {
 
         const tokenData = JSON.parse(Buffer.from(token, 'base64').toString());
         const { storeId, staffId } = tokenData;
-        const { data, action } = JSON.parse(event.body);
+        const { data, action, version, lastSync } = JSON.parse(event.body);
 
         if (action === 'save') {
+            // データのバージョン管理
+            const newVersion = Date.now().toString();
+            
             // まず既存データを削除してから新規挿入（完全な更新）
             const { error: deleteError } = await supabase
                 .from('store_data')
@@ -48,7 +51,8 @@ exports.handler = async (event, context) => {
                     store_id: storeId,
                     data: JSON.stringify(data),
                     last_updated_by: staffId,
-                    updated_at: new Date().toISOString()
+                    updated_at: new Date().toISOString(),
+                    version: newVersion
                 });
 
             if (insertError) {
@@ -59,7 +63,8 @@ exports.handler = async (event, context) => {
                         .update({
                             data: JSON.stringify(data),
                             last_updated_by: staffId,
-                            updated_at: new Date().toISOString()
+                            updated_at: new Date().toISOString(),
+                            version: newVersion
                         })
                         .eq('store_id', storeId);
 
@@ -74,7 +79,37 @@ exports.handler = async (event, context) => {
             return {
                 statusCode: 200,
                 headers,
-                body: JSON.stringify({ success: true })
+                body: JSON.stringify({ 
+                    success: true,
+                    version: newVersion
+                })
+            };
+            
+        } else if (action === 'check') {
+            // 更新チェック
+            const { data: storeData, error } = await supabase
+                .from('store_data')
+                .select('updated_at, last_updated_by, version')
+                .eq('store_id', storeId)
+                .single();
+            
+            if (error && error.code !== 'PGRST116') {
+                throw error;
+            }
+            
+            const hasUpdate = storeData && 
+                            new Date(storeData.updated_at) > new Date(lastSync) &&
+                            storeData.last_updated_by !== staffId;
+            
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({ 
+                    success: true,
+                    hasUpdate,
+                    updatedBy: storeData?.last_updated_by,
+                    version: storeData?.version
+                })
             };
             
         } else if (action === 'load') {
@@ -95,7 +130,8 @@ exports.handler = async (event, context) => {
                     body: JSON.stringify({ 
                         success: true, 
                         data: JSON.parse(storeData.data),
-                        lastUpdated: storeData.updated_at
+                        lastUpdated: storeData.updated_at,
+                        version: storeData.version
                     })
                 };
             }

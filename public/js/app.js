@@ -46,6 +46,9 @@ const EstateApp = {
             this.checkNotifications();
         }, 5 * 60 * 1000);
         
+        // 自動同期を設定
+        this.setupAutoSync();
+        
         // PWA対応
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').catch(e => console.log('SW registration failed'));
@@ -243,6 +246,144 @@ const EstateApp = {
         }
     },
 
+    // 自動同期機能
+    async syncData(showMessage = true) {
+        const token = sessionStorage.getItem('auth_token');
+        if (!token) {
+            window.location.href = '/login.html';
+            return;
+        }
+
+        try {
+            if (showMessage) {
+                EstateApp.showToast('同期中...', 'info');
+            }
+            
+            // 現在のデータバージョンを取得
+            const currentVersion = localStorage.getItem('data_version') || '0';
+            
+            // データを保存
+            const data = Storage.exportData();
+            const response = await fetch('/.netlify/functions/sync-data', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'save',
+                    data: data,
+                    version: currentVersion
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                // 新しいバージョンを保存
+                if (result.version) {
+                    localStorage.setItem('data_version', result.version);
+                }
+                
+                if (showMessage) {
+                    EstateApp.showToast('データを同期しました');
+                }
+                
+                // 他のユーザーの更新をチェック
+                await this.checkForUpdates();
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('Sync error:', error);
+            if (showMessage) {
+                EstateApp.showToast('同期に失敗しました', 'danger');
+            }
+        }
+    },
+
+    // 更新チェック
+    async checkForUpdates() {
+        const token = sessionStorage.getItem('auth_token');
+        if (!token) return;
+        
+        try {
+            const response = await fetch('/.netlify/functions/sync-data', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    action: 'check',
+                    lastSync: localStorage.getItem('last_sync_time') || '0'
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.hasUpdate && result.updatedBy !== Permissions.getCurrentStaffId()) {
+                // 他のユーザーによる更新がある場合
+                this.showUpdateNotification();
+            }
+            
+            localStorage.setItem('last_sync_time', new Date().toISOString());
+        } catch (error) {
+            console.error('Update check error:', error);
+        }
+    },
+
+    // 自動同期の設定
+    setupAutoSync() {
+        // 3分ごとに同期（サイレント）
+        setInterval(() => {
+            if (navigator.onLine) {
+                this.syncData(false); // メッセージなしで同期
+            }
+        }, 3 * 60 * 1000);
+        
+        // ページがアクティブになったときも同期
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && navigator.onLine) {
+                this.syncData(false);
+            }
+        });
+        
+        // オンラインに戻ったとき
+        window.addEventListener('online', () => {
+            this.syncData(true);
+        });
+        
+        // オフラインになったとき
+        window.addEventListener('offline', () => {
+            EstateApp.showToast('オフラインモードです。変更は次回接続時に同期されます', 'warning');
+        });
+    },
+
+    // 更新通知の表示
+    showUpdateNotification() {
+        // 編集中のモーダルがある場合は通知しない
+        if (document.querySelector('.modal[style*="display: flex"]')) {
+            return;
+        }
+        
+        const notification = document.createElement('div');
+        notification.className = 'update-notification';
+        notification.innerHTML = `
+            <div class="update-notification-content">
+                <span>📢 他のユーザーがデータを更新しました</span>
+                <button class="secondary-btn" onclick="location.reload()">ページを更新</button>
+                <button class="close-btn" onclick="this.closest('.update-notification').remove()">×</button>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // 10秒後に自動で消す
+        setTimeout(() => {
+            notification.remove();
+        }, 10000);
+    },
+
     // モーダル関連
     closePropertyModal() {
         document.getElementById('property-modal').style.display = 'none';
@@ -283,7 +424,7 @@ const EstateApp = {
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background-color: ${type === 'success' ? 'var(--success-color)' : 'var(--danger-color)'};
+            background-color: ${type === 'success' ? 'var(--success-color)' : type === 'danger' ? 'var(--danger-color)' : 'var(--info-color)'};
             color: white;
             padding: 1rem 2rem;
             border-radius: var(--border-radius);
@@ -335,6 +476,46 @@ document.head.appendChild(style);
 // DOMContentLoaded後に初期化
 document.addEventListener('DOMContentLoaded', () => {
     EstateApp.init();
+});
+
+// グローバルスコープに公開
+window.EstateApp = EstateApp;
+window.syncData = () => EstateApp.syncData(true);
+window.logout = function() {
+    if (confirm('ログアウトしますか？')) {
+        sessionStorage.clear();
+        window.location.href = '/login.html';
+    }
+};
+
+// 起動時にデータ読み込み
+window.addEventListener('DOMContentLoaded', async () => {
+    const token = sessionStorage.getItem('auth_token');
+    if (token) {
+        try {
+            const response = await fetch('/.netlify/functions/sync-data', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ action: 'load' })
+            });
+
+            const result = await response.json();
+            if (result.success && result.data) {
+                Storage.importData(result.data);
+                EstateApp.showToast('データを読み込みました');
+                
+                // バージョン情報を保存
+                if (result.version) {
+                    localStorage.setItem('data_version', result.version);
+                }
+            }
+        } catch (error) {
+            console.error('データ読み込みエラー:', error);
+        }
+    }
 });
 
 // グローバルスコープに公開
