@@ -50,7 +50,7 @@ const EstateApp = {
         
         // 自動同期を設定
         this.setupAutoSync();
-        
+
         // 定期的なヘルスチェック（30分ごと）
         setInterval(() => {
             const health = Storage.checkStorageHealth();
@@ -58,13 +58,13 @@ const EstateApp = {
             
             if (!health.healthy) {
                 // ストレージが不健全な場合はクリーンアップを実行
-                const cleaned = Storage.cleanupDeletedData(14);
+                const cleaned = Storage.cleanupSyncedDeletedData(14);
                 if (cleaned > 0) {
-                    console.log(`Auto-cleaned ${cleaned} old items`);
+                    console.log(`Auto-cleaned ${cleaned} old items from local storage`);
                 }
             }
         }, 30 * 60 * 1000);
-        
+
         // 起動時にもチェック
         setTimeout(() => {
             Storage.checkStorageHealth();
@@ -280,6 +280,9 @@ const EstateApp = {
                 EstateApp.showToast('同期中...', 'info');
             }
             
+            // 同期前の削除データ数を記録
+            const beforeDeletedCount = this.countDeletedItems();
+            
             const data = Storage.exportData();
             const response = await fetch('/.netlify/functions/sync-data', {
                 method: 'POST',
@@ -293,7 +296,6 @@ const EstateApp = {
                 })
             });
 
-            // トークン期限切れチェック
             if (response.status === 401) {
                 sessionStorage.clear();
                 EstateApp.showToast('セッションの有効期限が切れました。再度ログインしてください。', 'danger');
@@ -305,21 +307,48 @@ const EstateApp = {
 
             const result = await response.json();
             if (result.success) {
+                // 同期成功時刻を記録
+                localStorage.setItem('last_sync_time', new Date().toISOString());
+                
+                // 同期成功フラグを記録
+                localStorage.setItem('last_sync_success', 'true');
+                
+                // 削除データの同期履歴を記録
+                localStorage.setItem('synced_deleted_items', JSON.stringify({
+                    count: beforeDeletedCount,
+                    syncedAt: new Date().toISOString()
+                }));
+                
                 if (showMessage) {
                     EstateApp.showToast('データを同期しました');
                 }
                 
-                // 他のユーザーの更新をチェック
+                // 安全なクリーンアップ（7日以上前かつ同期済みのもののみ）
+                const cleaned = Storage.cleanupSyncedDeletedData(7);
+                if (cleaned > 0) {
+                    console.log(`Safely cleaned ${cleaned} old synced items from local storage`);
+                }
+                
                 await this.checkForUpdates();
             } else {
                 throw new Error(result.error);
             }
         } catch (error) {
             console.error('Sync error:', error);
+            localStorage.setItem('last_sync_success', 'false');
             if (showMessage) {
                 EstateApp.showToast('同期に失敗しました', 'danger');
             }
         }
+    },
+    // 削除済みアイテムの数を数える
+    countDeletedItems() {
+        let count = 0;
+        ['estate_properties', 'estate_sales', 'estate_memos', 'estate_todos'].forEach(key => {
+            const data = JSON.parse(localStorage.getItem(key) || '[]');
+            count += data.filter(item => item.deleted).length;
+        });
+        return count;
     },
 
     // 更新チェック
@@ -416,7 +445,7 @@ const EstateApp = {
         // 3分ごとに同期（サイレント）
         setInterval(() => {
             if (navigator.onLine) {
-                this.syncData(false); // メッセージなしで同期
+                this.syncData(false);
             }
         }, 3 * 60 * 1000);
         
@@ -453,19 +482,39 @@ const EstateApp = {
             EstateApp.showToast('オフラインモードです。変更は次回接続時に同期されます', 'warning');
         });
         
-        // ページを離れる前に同期を試みる
-        window.addEventListener('beforeunload', (e) => {
-            if (navigator.onLine) {
-                // 非同期処理は保証されないが、試みる
-                navigator.sendBeacon('/.netlify/functions/sync-data', 
-                    JSON.stringify({
-                        action: 'save',
-                        data: Storage.exportData(),
-                        token: sessionStorage.getItem('auth_token')
-                    })
-                );
+        // 1日1回、深夜に完全同期とクリーンアップを実行
+        const scheduleFullSync = () => {
+            const now = new Date();
+            const night = new Date();
+            night.setHours(3, 0, 0, 0); // 午前3時に設定
+            
+            // 今日の3時を過ぎていたら明日の3時
+            if (now > night) {
+                night.setDate(night.getDate() + 1);
             }
-        });
+            
+            const msUntilNight = night - now;
+            
+            setTimeout(() => {
+                // 完全同期とクリーンアップ
+                console.log('Starting nightly full sync and cleanup...');
+                
+                this.syncData(false).then(() => {
+                    // 積極的なクリーンアップ（すべての削除済みデータをローカルから物理削除）
+                    const cleaned = Storage.aggressiveCleanup();
+                    console.log(`Nightly cleanup: removed ${cleaned} items from local storage`);
+                    
+                    // ストレージの最適化
+                    Storage.optimizeStorage();
+                });
+                
+                // 次の日の同じ時間にまた実行
+                scheduleFullSync();
+            }, msUntilNight);
+        };
+        
+        // 初回スケジュール
+        scheduleFullSync();
     },
 
     // 更新通知の表示

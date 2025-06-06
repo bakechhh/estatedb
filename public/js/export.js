@@ -30,6 +30,56 @@ const Export = {
         document.getElementById('clear-data').addEventListener('click', () => {
             this.clearAllData();
         });
+
+        // ストレージ管理ボタンのイベントリスナー
+        document.getElementById('check-storage').addEventListener('click', () => {
+            const details = Storage.getStorageDetails();
+            const health = Storage.checkStorageHealth();
+            
+            let detailsHtml = `
+                <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--border-radius); margin-bottom: 1rem;">
+                    <p><strong>総使用量:</strong> ${details.totalMB} (${health.usage}%)</p>
+                    <p><strong>健全性:</strong> ${health.healthy ? '✅ 良好' : '⚠️ 要クリーンアップ'}</p>
+                    <details>
+                        <summary>詳細</summary>
+                        <ul style="margin-top: 0.5rem;">
+            `;
+            
+            for (let key in details.details) {
+                detailsHtml += `<li>${key}: ${details.details[key].sizeKB} (${details.details[key].percentage})</li>`;
+            }
+            
+            detailsHtml += `
+                        </ul>
+                    </details>
+                </div>
+            `;
+            
+            document.getElementById('storage-info').innerHTML = detailsHtml;
+        });
+
+        document.getElementById('cleanup-storage').addEventListener('click', () => {
+            if (confirm('7日以上前の削除済みデータをローカルストレージからクリーンアップしますか？\n※サーバーのデータは保持されます')) {
+                const cleaned = Storage.cleanupSyncedDeletedData(7);
+                EstateApp.showToast(`${cleaned}件のデータをローカルからクリーンアップしました`);
+                
+                // 同期を実行
+                EstateApp.syncData(true);
+            }
+        });
+
+        document.getElementById('aggressive-cleanup').addEventListener('click', () => {
+            if (confirm('すべての削除済みデータをローカルストレージから完全に削除しますか？\n※必ず同期が完了していることを確認してください\n※サーバーのデータは保持されます')) {
+                // まず同期
+                EstateApp.syncData(true).then(() => {
+                    // その後クリーンアップ
+                    setTimeout(() => {
+                        const cleaned = Storage.aggressiveCleanup();
+                        EstateApp.showToast(`${cleaned}件のデータをローカルから完全削除しました`);
+                    }, 2000);
+                });
+            }
+        });
     },
 
     exportJSON() {

@@ -824,32 +824,98 @@ const Storage = {
         return Math.round((currentSize / maxSize) * 100);
     },
 
-    // 古い削除済みデータをクリーンアップ
-    cleanupDeletedData(daysToKeep = 30) {
+
+    // 同期済みの削除データをクリーンアップ（ローカルのみ）
+    cleanupSyncedDeletedData(daysToKeep = 7) {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
         
         let cleanedCount = 0;
         
-        // 各種データをクリーンアップ
+        // 最後の同期時刻を確認
+        const lastSyncTime = localStorage.getItem('last_sync_time');
+        if (!lastSyncTime) {
+            console.log('No sync history found, skipping cleanup');
+            return 0;
+        }
+        
+        const lastSync = new Date(lastSyncTime);
+        const hoursSinceSync = (new Date() - lastSync) / (1000 * 60 * 60);
+        
+        // 24時間以内に同期していない場合はクリーンアップしない
+        if (hoursSinceSync > 24) {
+            console.log('Last sync too old, skipping cleanup');
+            return 0;
+        }
+        
         ['PROPERTIES', 'SALES', 'MEMOS', 'TODOS'].forEach(key => {
             const dataKey = this.KEYS[key];
-            const data = JSON.parse(localStorage.getItem(dataKey) || '[]');
-            const originalLength = data.length;
+            const allData = JSON.parse(localStorage.getItem(dataKey) || '[]');
+            const originalLength = allData.length;
             
-            const filtered = data.filter(item => {
+            const filtered = allData.filter(item => {
                 if (item.deleted && item.deletedAt) {
                     const deletedDate = new Date(item.deletedAt);
-                    return deletedDate > cutoffDate;
+                    
+                    // 削除日が古く、かつ最後の同期より前の場合のみ物理削除
+                    if (deletedDate < cutoffDate && deletedDate < lastSync) {
+                        return false; // ローカルから物理削除
+                    }
                 }
-                return true;
+                return true; // 保持
             });
             
             cleanedCount += originalLength - filtered.length;
-            localStorage.setItem(dataKey, JSON.stringify(filtered));
+            
+            if (originalLength !== filtered.length) {
+                localStorage.setItem(dataKey, JSON.stringify(filtered));
+            }
         });
         
-        console.log(`Cleaned up ${cleanedCount} old deleted items`);
+        return cleanedCount;
+    },
+    // より積極的なクリーンアップ（同期確認後のみ実行）
+    aggressiveCleanup() {
+        // 最後の同期が成功していることを確認
+        const lastSyncSuccess = localStorage.getItem('last_sync_success');
+        if (lastSyncSuccess !== 'true') {
+            console.warn('Last sync was not successful, aborting aggressive cleanup');
+            return 0;
+        }
+        
+        // 最後の同期から十分な時間が経過していることを確認（5分以上）
+        const lastSyncTime = localStorage.getItem('last_sync_time');
+        if (lastSyncTime) {
+            const timeSinceSync = new Date() - new Date(lastSyncTime);
+            if (timeSinceSync < 5 * 60 * 1000) {
+                console.warn('Too soon after last sync, aborting aggressive cleanup');
+                return 0;
+            }
+        }
+        
+        let cleanedCount = 0;
+        
+        ['PROPERTIES', 'SALES', 'MEMOS', 'TODOS'].forEach(key => {
+            const dataKey = this.KEYS[key];
+            const allData = JSON.parse(localStorage.getItem(dataKey) || '[]');
+            
+            // 削除フラグが立っているものをローカルから物理削除
+            const filtered = allData.filter(item => !item.deleted);
+            
+            cleanedCount += allData.length - filtered.length;
+            
+            if (allData.length !== filtered.length) {
+                localStorage.setItem(dataKey, JSON.stringify(filtered));
+            }
+        });
+        
+        // クリーンアップ履歴を記録
+        localStorage.setItem('last_cleanup', JSON.stringify({
+            cleanedCount,
+            cleanedAt: new Date().toISOString()
+        }));
+        
+        console.log(`Aggressively cleaned ${cleanedCount} deleted items from local storage`);
         return cleanedCount;
     },
 
@@ -859,7 +925,7 @@ const Storage = {
         
         if (usage > 80) {
             // 80%以上使用している場合は古いデータをクリーンアップ
-            this.cleanupDeletedData(7); // 7日以上前の削除済みデータを物理削除
+            this.cleanupSyncedDeletedData(7); // 7日以上前の同期済み削除データを物理削除
             
             if (usage > 90) {
                 EstateApp.showToast('ストレージ容量が不足しています。不要なデータを削除してください。', 'danger');
@@ -873,7 +939,63 @@ const Storage = {
         };
     },
 
-    // 削除を取り消し（復元）
+    // ストレージの最適化
+    optimizeStorage() {
+        // 各データを再パースして最適化
+        ['PROPERTIES', 'SALES', 'MEMOS', 'TODOS', 'GOALS', 'NOTIFICATIONS'].forEach(key => {
+            const dataKey = this.KEYS[key];
+            const data = localStorage.getItem(dataKey);
+            
+            if (data) {
+                try {
+                    // パース＆再文字列化で無駄な空白を削除
+                    const parsed = JSON.parse(data);
+                    const optimized = JSON.stringify(parsed);
+                    
+                    // サイズが削減された場合のみ更新
+                    if (optimized.length < data.length) {
+                        localStorage.setItem(dataKey, optimized);
+                    }
+                } catch (e) {
+                    console.error(`Failed to optimize ${key}:`, e);
+                }
+            }
+        });
+        
+        console.log('Storage optimized');
+    },
+
+    // ストレージ使用状況の詳細を取得
+    getStorageDetails() {
+        const details = {};
+        let totalSize = 0;
+        
+        for (let key in localStorage) {
+            if (localStorage.hasOwnProperty(key)) {
+                const size = localStorage[key].length + key.length;
+                details[key] = {
+                    size: size,
+                    sizeKB: (size / 1024).toFixed(2) + ' KB',
+                    percentage: 0 // 後で計算
+                };
+                totalSize += size;
+            }
+        }
+        
+        // パーセンテージを計算
+        for (let key in details) {
+            details[key].percentage = ((details[key].size / totalSize) * 100).toFixed(1) + '%';
+        }
+        
+        return {
+            total: totalSize,
+            totalKB: (totalSize / 1024).toFixed(2) + ' KB',
+            totalMB: (totalSize / 1024 / 1024).toFixed(2) + ' MB',
+            details: details
+        };
+    },
+
+    // 削除の取り消し（復元）機能
     restoreProperty(id) {
         const properties = JSON.parse(localStorage.getItem(this.KEYS.PROPERTIES) || '[]');
         const property = properties.find(p => p.id === id && p.deleted);
