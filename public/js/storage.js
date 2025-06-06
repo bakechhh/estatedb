@@ -790,14 +790,20 @@ const Storage = {
 
    // エクスポート/インポート
    exportData() {
+       // 削除フラグ付きも含めて全データを取得
+       const allProperties = JSON.parse(localStorage.getItem(this.KEYS.PROPERTIES) || '[]');
+       const allSales = JSON.parse(localStorage.getItem(this.KEYS.SALES) || '[]');
+       const allMemos = JSON.parse(localStorage.getItem(this.KEYS.MEMOS) || '[]');
+       const allTodos = JSON.parse(localStorage.getItem(this.KEYS.TODOS) || '[]');
+       
        return {
-           properties: this.getProperties(),
-           sales: this.getSales(),
+           properties: allProperties, // 削除フラグ付きも含める
+           sales: allSales, // 削除フラグ付きも含める
            settings: this.getSettings(),
            notifications: this.getNotifications(),
            goals: this.getGoals(),
-           memos: this.getMemos(),
-           todos: this.getTodos(),
+           memos: allMemos, // 削除フラグ付きも含める
+           todos: allTodos, // 削除フラグ付きも含める
            exportDate: new Date().toISOString(),
            version: '1.1'
        };

@@ -561,15 +561,22 @@ window.addEventListener('DOMContentLoaded', async () => {
     const token = sessionStorage.getItem('auth_token');
     if (token) {
         try {
-            // ローカルデータのバックアップ
-            const localBackup = {
-                properties: Storage.getProperties(),
-                sales: Storage.getSales(),
-                goals: Storage.getGoals(),
-                memos: Storage.getMemos(),
-                todos: Storage.getTodos(),
-                notifications: Storage.getNotifications()
+            // ローカルデータを取得（削除フラグ付きも含む）
+            const localData = {
+                properties: JSON.parse(localStorage.getItem('estate_properties') || '[]'),
+                sales: JSON.parse(localStorage.getItem('estate_sales') || '[]')
             };
+            
+            // ローカルで削除されたものを記録
+            const localDeletedIds = {
+                properties: new Set(localData.properties.filter(p => p.deleted).map(p => p.id)),
+                sales: new Set(localData.sales.filter(s => s.deleted).map(s => s.id))
+            };
+            
+            console.log('Local deleted IDs:', {
+                properties: Array.from(localDeletedIds.properties),
+                sales: Array.from(localDeletedIds.sales)
+            });
             
             const response = await fetch('/.netlify/functions/sync-data', {
                 method: 'POST',
@@ -582,35 +589,43 @@ window.addEventListener('DOMContentLoaded', async () => {
 
             const result = await response.json();
             if (result.success && result.data) {
-                // サーバーデータとローカルデータを適切にマージ
-                const serverData = result.data;
+                // 重要：サーバーから取得したデータにローカルの削除フラグを復元
+                if (result.data.sales) {
+                    result.data.sales = result.data.sales.map(sale => {
+                        if (localDeletedIds.sales.has(sale.id)) {
+                            const localSale = localData.sales.find(s => s.id === sale.id);
+                            return {
+                                ...sale,
+                                deleted: true,
+                                deletedAt: localSale?.deletedAt,
+                                updatedAt: localSale?.updatedAt
+                            };
+                        }
+                        return sale;
+                    });
+                }
                 
-                // ローカルに削除フラグがあるものを記録
-                const localDeletedIds = {
-                    sales: new Set(JSON.parse(localStorage.getItem('estate_sales') || '[]')
-                        .filter(s => s.deleted)
-                        .map(s => s.id)),
-                    properties: new Set(JSON.parse(localStorage.getItem('estate_properties') || '[]')
-                        .filter(p => p.deleted)
-                        .map(p => p.id))
-                };
+                if (result.data.properties) {
+                    result.data.properties = result.data.properties.map(property => {
+                        if (localDeletedIds.properties.has(property.id)) {
+                            const localProp = localData.properties.find(p => p.id === property.id);
+                            return {
+                                ...property,
+                                deleted: true,
+                                deletedAt: localProp?.deletedAt,
+                                updatedAt: localProp?.updatedAt
+                            };
+                        }
+                        return property;
+                    });
+                }
                 
-                // サーバーデータから削除済みのものを除外
-                const mergedData = {
-                    properties: (serverData.properties || []).filter(p => !localDeletedIds.properties.has(p.id)),
-                    sales: (serverData.sales || []).filter(s => !localDeletedIds.sales.has(s.id)),
-                    goals: serverData.goals || localBackup.goals,
-                    memos: serverData.memos || localBackup.memos,
-                    todos: serverData.todos || localBackup.todos,
-                    notifications: serverData.notifications || localBackup.notifications,
-                    settings: serverData.settings || Storage.getSettings()
-                };
-                
-                Storage.importData(mergedData);
+                Storage.importData(result.data);
                 EstateApp.showToast('データを読み込みました');
                 
-                // すぐに同期して削除フラグをサーバーに反映
+                // 削除フラグがある場合は即座に同期
                 if (localDeletedIds.sales.size > 0 || localDeletedIds.properties.size > 0) {
+                    console.log('Syncing deleted items...');
                     setTimeout(() => {
                         EstateApp.syncData(false);
                     }, 1000);
