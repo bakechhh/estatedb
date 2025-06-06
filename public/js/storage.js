@@ -138,8 +138,14 @@ const Storage = {
     getSales() {
         const data = localStorage.getItem(this.KEYS.SALES);
         const allSales = data ? JSON.parse(data) : [];
-        const filtered = allSales.filter(s => !s.deleted);
         
+        // デバッグ用詳細ログ
+        console.log('全売上データ:', allSales);
+        allSales.forEach((sale, index) => {
+            console.log(`売上[${index}] - ID: ${sale.id}, deleted: ${sale.deleted}, deletedAt: ${sale.deletedAt}`);
+        });
+        
+        const filtered = allSales.filter(s => !s.deleted);
         console.log('getSales - 削除前:', allSales.length, '削除後:', filtered.length);
         
         return filtered;
