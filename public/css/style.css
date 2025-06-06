@@ -2138,3 +2138,7 @@ textarea {
     padding: 0;
     margin-left: 0.5rem;
 }
+.transaction-staff {
+    font-weight: normal;
+    margin-left: 0.5rem;
+}

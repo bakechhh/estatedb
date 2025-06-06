@@ -178,66 +178,68 @@ const Dashboard = {
    },
 
    updateRecentTransactions() {
-       // ビューに応じてデータを取得
-       let sales;
-       if (this.currentView === 'personal') {
-           sales = Storage.getPersonalSales();
-       } else {
-           sales = Storage.getSales();
-       }
-       
-       const container = document.getElementById('recent-transactions');
-       
-       if (sales.length === 0) {
-           container.innerHTML = '<p class="no-data">取引履歴がありません</p>';
-           return;
-       }
-       
-       // 日付でソートして最新5件を取得
-       const sortedSales = sales.sort((a, b) => new Date(b.date) - new Date(a.date));
-       
-       container.innerHTML = sortedSales.slice(0, 5).map(sale => {
-           let displayName = '';
-           let amount = 0;
-           
-           // 案件名があればそれを優先、なければ物件名または顧客名
-           displayName = sale.dealName || sale.propertyName || sale.customerName;
-           
-           switch (sale.type) {
-               case 'realestate':
-                   amount = sale.profit;
-                   break;
-               case 'renovation':
-                   amount = sale.profit;
-                   break;
-               case 'other':
-                   amount = sale.amount;
-                   break;
-           }
-           
-           const collectionStatus = sale.collectionStatus || 'pending';
-           const collectionIcon = collectionStatus === 'collected' ? '✓' : '⏳';
-           const collectionClass = collectionStatus === 'collected' ? 'collected' : 'pending';
-           
-           // 担当者名を追加（店舗全体ビューの場合）
-           const staffInfo = this.currentView === 'store' && sale.staffId 
-               ? ` <span style="font-size: 0.8rem; color: var(--text-secondary);">(${sale.staffId})</span>` 
-               : '';
-           
-           return `
-               <div class="transaction-item">
-                   <div class="transaction-info">
-                       <div class="transaction-property">${displayName}${staffInfo}</div>
-                       <div class="transaction-date">${EstateApp.formatDate(sale.date)}</div>
-                   </div>
-                   <div class="transaction-amount">
-                       ${EstateApp.formatCurrency(amount)}
-                       <span class="collection-status ${collectionClass}" title="${collectionStatus === 'collected' ? '回収済' : '未回収'}">${collectionIcon}</span>
-                   </div>
-               </div>
-           `;
-       }).join('');
-   },
+        // ビューに応じてデータを取得
+        let sales;
+        if (this.currentView === 'personal') {
+            sales = Storage.getPersonalSales();
+        } else {
+            sales = Storage.getSales();
+        }
+        
+        const container = document.getElementById('recent-transactions');
+        
+        if (sales.length === 0) {
+            container.innerHTML = '<p class="no-data">取引履歴がありません</p>';
+            return;
+        }
+        
+        // 日付でソートして最新5件を取得
+        const sortedSales = sales.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        container.innerHTML = sortedSales.slice(0, 5).map(sale => {
+            let displayName = '';
+            let amount = 0;
+            
+            // 案件名があればそれを優先、なければ物件名または顧客名
+            displayName = sale.dealName || sale.propertyName || sale.customerName;
+            
+            switch (sale.type) {
+                case 'realestate':
+                    amount = sale.profit;
+                    break;
+                case 'renovation':
+                    amount = sale.profit;
+                    break;
+                case 'other':
+                    amount = sale.amount;
+                    break;
+            }
+            
+            const collectionStatus = sale.collectionStatus || 'pending';
+            const collectionIcon = collectionStatus === 'collected' ? '✓' : '⏳';
+            const collectionClass = collectionStatus === 'collected' ? 'collected' : 'pending';
+            
+            // 担当者名を取得（店舗全体ビューの場合）
+            let staffInfo = '';
+            if (this.currentView === 'store' && sale.staffId) {
+                const staffName = Staff.getStaffNameSync(sale.staffId);
+                staffInfo = ` <span class="transaction-staff" style="font-size: 0.8rem; color: var(--text-secondary);">(${staffName})</span>`;
+            }
+            
+            return `
+                <div class="transaction-item">
+                    <div class="transaction-info">
+                        <div class="transaction-property">${displayName}${staffInfo}</div>
+                        <div class="transaction-date">${EstateApp.formatDate(sale.date)}</div>
+                    </div>
+                    <div class="transaction-amount">
+                        ${EstateApp.formatCurrency(amount)}
+                        <span class="collection-status ${collectionClass}" title="${collectionStatus === 'collected' ? '回収済' : '未回収'}">${collectionIcon}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    },
 
    updateGoalProgress() {
        const goals = Storage.getGoals();

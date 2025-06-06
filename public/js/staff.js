@@ -49,7 +49,6 @@ const Staff = {
         };
     },
 
-    // スタッフ名を取得（同期的に使える簡易版）
     getStaffNameSync(staffId) {
         if (!staffId) return '未設定';
         
@@ -59,8 +58,7 @@ const Staff = {
             return info.name || staffId;
         }
         
-        // キャッシュにない場合はIDをそのまま返す
-        // 後で非同期で更新される
+        // キャッシュにない場合は非同期で取得して更新
         this.getStaffInfo(staffId).then(info => {
             if (info && info.name !== staffId) {
                 // DOMを更新
@@ -68,6 +66,7 @@ const Staff = {
             }
         });
         
+        // 一時的にIDを返す
         return staffId;
     },
 
