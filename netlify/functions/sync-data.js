@@ -180,36 +180,39 @@ function mergeStoreData(serverData, clientData) {
 
 // 配列をマージする汎用関数
 function mergeArrays(serverArray, clientArray, idField) {
-   const map = new Map();
-   
-   // サーバーのデータをマップに追加
-   serverArray.forEach(item => {
-       if (item[idField]) {
-           map.set(item[idField], item);
-       }
-   });
-   
-   // クライアントのデータで更新または追加
-   clientArray.forEach(item => {
-       if (item[idField]) {
-           const existing = map.get(item[idField]);
-           
-           // 新規または更新日時が新しい場合は上書き
-           if (!existing || isNewer(item, existing)) {
-               map.set(item[idField], item);
-           }
-       }
-   });
-   
-   // 削除されていないアイテムのみを返す
-   const activeItems = Array.from(map.values()).filter(item => !item.deleted);
-   
-   // 日付順にソート（新しい順）
-   return activeItems.sort((a, b) => {
-       const dateA = new Date(a.createdAt || a.updatedAt || 0);
-       const dateB = new Date(b.createdAt || b.updatedAt || 0);
-       return dateB - dateA;
-   });
+    const map = new Map();
+    
+    // サーバーのデータをマップに追加
+    serverArray.forEach(item => {
+        if (item[idField]) {
+            map.set(item[idField], item);
+        }
+    });
+    
+    // クライアントのデータで更新または追加
+    clientArray.forEach(item => {
+        if (item[idField]) {
+            const existing = map.get(item[idField]);
+            
+            // 削除フラグがある場合は常に優先
+            if (item.deleted) {
+                map.set(item[idField], item);
+            }
+            // 新規または更新日時が新しい場合は上書き
+            else if (!existing || isNewer(item, existing)) {
+                map.set(item[idField], item);
+            }
+        }
+    });
+    
+    // 削除されていないアイテムのみを返す
+    const activeItems = Array.from(map.values()).filter(item => !item.deleted);
+    
+    return activeItems.sort((a, b) => {
+        const dateA = new Date(a.createdAt || a.updatedAt || 0);
+        const dateB = new Date(b.createdAt || b.updatedAt || 0);
+        return dateB - dateA;
+    });
 }
 
 // 更新日時を比較

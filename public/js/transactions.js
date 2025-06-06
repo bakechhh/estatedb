@@ -227,23 +227,20 @@ const Transactions = {
             }
             
             this.renderTransactionList();
-            EstateApp.showToast('取引を削除しました');
+            EstateApp.showToast('取引を削除しました。同期中...');
             
-            // 画面を更新（ここが重要）
+            // 画面を更新
             Dashboard.refresh();
-            
-            // カレンダーも明示的に更新
             if (typeof Calendar !== 'undefined') {
                 Calendar.render();
             }
             
-            // ダッシュボードタブの場合は全体を更新
-            if (EstateApp.currentTab === 'dashboard') {
-                setTimeout(() => {
-                    Dashboard.refresh();
-                    Calendar.render();
-                }, 100);
-            }
+            // 削除後、即座にサーバーに同期 ← 重要！
+            setTimeout(() => {
+                EstateApp.syncData(true).then(() => {
+                    EstateApp.showToast('削除が同期されました');
+                });
+            }, 500);
         }
     },
 
