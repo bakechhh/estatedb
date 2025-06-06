@@ -138,7 +138,11 @@ const Storage = {
     getSales() {
         const data = localStorage.getItem(this.KEYS.SALES);
         const allSales = data ? JSON.parse(data) : [];
-        return allSales.filter(s => !s.deleted);
+        const filtered = allSales.filter(s => !s.deleted);
+        
+        console.log('getSales - 削除前:', allSales.length, '削除後:', filtered.length);
+        
+        return filtered;
     },
 
    saveSale(sale) {

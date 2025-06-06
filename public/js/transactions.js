@@ -214,28 +214,38 @@ const Transactions = {
    },
 
    deleteTransaction(saleId) {
-       if (confirm('この取引を削除しますか？')) {
-           // 削除前に売上データを取得
-           const sale = Storage.getSales().find(s => s.id === saleId);
-           
-           // 削除実行
-           Storage.deleteSale(saleId);
-           
-           // 物件が紐づいている場合は販売中に戻す
-           if (sale && sale.propertyId) {
-               Storage.updateProperty(sale.propertyId, { status: 'active' });
-           }
-           
-           this.renderTransactionList();
-           EstateApp.showToast('取引を削除しました');
-           
-           // 画面を更新
-           Dashboard.refresh();
-           if (typeof Calendar !== 'undefined') {
-               Calendar.render();
-           }
-       }
-   },
+        if (confirm('この取引を削除しますか？')) {
+            // 削除前に売上データを取得
+            const sale = Storage.getSales().find(s => s.id === saleId);
+            
+            // 削除実行
+            Storage.deleteSale(saleId);
+            
+            // 物件が紐づいている場合は販売中に戻す
+            if (sale && sale.propertyId) {
+                Storage.updateProperty(sale.propertyId, { status: 'active' });
+            }
+            
+            this.renderTransactionList();
+            EstateApp.showToast('取引を削除しました');
+            
+            // 画面を更新（ここが重要）
+            Dashboard.refresh();
+            
+            // カレンダーも明示的に更新
+            if (typeof Calendar !== 'undefined') {
+                Calendar.render();
+            }
+            
+            // ダッシュボードタブの場合は全体を更新
+            if (EstateApp.currentTab === 'dashboard') {
+                setTimeout(() => {
+                    Dashboard.refresh();
+                    Calendar.render();
+                }, 100);
+            }
+        }
+    },
 
    getTypeText(type, subType) {
        switch (type) {

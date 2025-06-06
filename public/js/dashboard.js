@@ -53,6 +53,11 @@ const Dashboard = {
         if (typeof Todos !== 'undefined') {
             Todos.renderTodoWidget();
         }
+        
+        // カレンダーも明示的に更新が必要
+        if (typeof Calendar !== 'undefined') {
+            Calendar.render(); // ← これが呼ばれているか？
+        }
 
         // マネージャーの場合はスタッフ実績も更新
         if (Permissions.isManager()) {
