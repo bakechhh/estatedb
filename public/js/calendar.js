@@ -24,7 +24,33 @@ const Calendar = {
         const calendarContainer = document.getElementById('calendar-view');
         if (!calendarContainer) return;
         
+        // currentYearMonthが無効な場合は現在の年月を使用
+        if (!this.currentYearMonth || this.currentYearMonth === 'NaN-NaN') {
+            this.currentYearMonth = this.getCurrentYearMonth();
+        }
+        
         const [year, month] = this.currentYearMonth.split('-').map(Number);
+        
+        // 数値チェック
+        if (isNaN(year) || isNaN(month)) {
+            this.currentYearMonth = this.getCurrentYearMonth();
+            const [validYear, validMonth] = this.currentYearMonth.split('-').map(Number);
+            const salesData = this.getMonthSalesData();
+            const deadlineData = this.getMonthDeadlines();
+            
+            calendarContainer.innerHTML = `
+                <div class="calendar-header">
+                    <button class="month-nav-btn" onclick="Calendar.changeMonth(-1)">←</button>
+                    <h3>${validYear}年${validMonth}月</h3>
+                    <button class="month-nav-btn" onclick="Calendar.changeMonth(1)">→</button>
+                </div>
+                <div class="calendar-container">
+                    ${this.generateCalendarGrid(validYear, validMonth, salesData, deadlineData)}
+                </div>
+            `;
+            return;
+        }
+        
         const salesData = this.getMonthSalesData();
         const deadlineData = this.getMonthDeadlines();
         
@@ -41,7 +67,19 @@ const Calendar = {
     },
 
     changeMonth(direction) {
+        // currentYearMonthが無効な場合は現在の年月を使用
+        if (!this.currentYearMonth || this.currentYearMonth === 'NaN-NaN') {
+            this.currentYearMonth = this.getCurrentYearMonth();
+        }
+        
         const [year, month] = this.currentYearMonth.split('-').map(Number);
+        
+        if (isNaN(year) || isNaN(month)) {
+            this.currentYearMonth = this.getCurrentYearMonth();
+            this.render();
+            return;
+        }
+        
         const date = new Date(year, month - 1 + direction, 1);
         this.currentYearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         this.render();
@@ -109,7 +147,18 @@ const Calendar = {
     },
 
     getMonthSalesData() {
+        // currentYearMonthが無効な場合は空のオブジェクトを返す
+        if (!this.currentYearMonth || this.currentYearMonth === 'NaN-NaN') {
+            return {};
+        }
+        
         const [year, month] = this.currentYearMonth.split('-').map(Number);
+        
+        // 数値チェック
+        if (isNaN(year) || isNaN(month)) {
+            return {};
+        }
+        
         let sales;
         
         // Dashboardの現在のビューに応じてデータを取得
@@ -147,7 +196,18 @@ const Calendar = {
     },
 
     getMonthDeadlines() {
+        // currentYearMonthが無効な場合は空のオブジェクトを返す
+        if (!this.currentYearMonth || this.currentYearMonth === 'NaN-NaN') {
+            return {};
+        }
+        
         const [year, month] = this.currentYearMonth.split('-').map(Number);
+        
+        // 数値チェック
+        if (isNaN(year) || isNaN(month)) {
+            return {};
+        }
+        
         let properties;
         let sales;
         
