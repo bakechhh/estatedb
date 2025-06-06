@@ -280,12 +280,7 @@ const Storage = {
         return goal;
     },
    
-   // メモ管理
-   getMemos() {
-       const data = localStorage.getItem(this.KEYS.MEMOS);
-       return data ? JSON.parse(data) : [];
-   },
-
+   // メモ管
    getMemos() {
         const data = localStorage.getItem(this.KEYS.MEMOS);
         const allMemos = data ? JSON.parse(data) : [];
@@ -810,35 +805,93 @@ const Storage = {
 
    importData(data) {
         try {
-            // 各データタイプごとに存在チェックをしてから保存
+            // 既存のローカルデータを取得（削除フラグを保持するため）
+            const existingData = {
+                properties: JSON.parse(localStorage.getItem(this.KEYS.PROPERTIES) || '[]'),
+                sales: JSON.parse(localStorage.getItem(this.KEYS.SALES) || '[]'),
+                goals: JSON.parse(localStorage.getItem(this.KEYS.GOALS) || '[]'),
+                memos: JSON.parse(localStorage.getItem(this.KEYS.MEMOS) || '[]'),
+                todos: JSON.parse(localStorage.getItem(this.KEYS.TODOS) || '[]'),
+                notifications: JSON.parse(localStorage.getItem(this.KEYS.NOTIFICATIONS) || '[]')
+            };
+            
+            // 削除フラグのあるIDを記録
+            const deletedIds = {
+                properties: new Set(existingData.properties.filter(p => p.deleted).map(p => p.id)),
+                sales: new Set(existingData.sales.filter(s => s.deleted).map(s => s.id)),
+                memos: new Set(existingData.memos.filter(m => m.deleted).map(m => m.id)),
+                todos: new Set(existingData.todos.filter(t => t.deleted).map(t => t.id))
+            };
+            
+            // プロパティのインポート（削除フラグを復元）
             if (data.properties && Array.isArray(data.properties)) {
+                data.properties = data.properties.map(p => {
+                    if (deletedIds.properties.has(p.id)) {
+                        const deleted = existingData.properties.find(ep => ep.id === p.id);
+                        return { ...p, deleted: deleted.deleted, deletedAt: deleted.deletedAt, updatedAt: deleted.updatedAt };
+                    }
+                    return p;
+                });
                 localStorage.setItem(this.KEYS.PROPERTIES, JSON.stringify(data.properties));
             }
+            
+            // 売上のインポート（削除フラグを復元）
             if (data.sales && Array.isArray(data.sales)) {
+                data.sales = data.sales.map(s => {
+                    if (deletedIds.sales.has(s.id)) {
+                        const deleted = existingData.sales.find(es => es.id === s.id);
+                        return { ...s, deleted: deleted.deleted, deletedAt: deleted.deletedAt, updatedAt: deleted.updatedAt };
+                    }
+                    return s;
+                });
                 localStorage.setItem(this.KEYS.SALES, JSON.stringify(data.sales));
             }
-            if (data.settings && typeof data.settings === 'object') {
-                localStorage.setItem(this.KEYS.SETTINGS, JSON.stringify(data.settings));
-            }
-            if (data.notifications && Array.isArray(data.notifications)) {
-                localStorage.setItem(this.KEYS.NOTIFICATIONS, JSON.stringify(data.notifications));
-            }
+            
+            // 目標のインポート
             if (data.goals && Array.isArray(data.goals)) {
                 localStorage.setItem(this.KEYS.GOALS, JSON.stringify(data.goals));
             }
+            
+            // メモのインポート（削除フラグを復元）
             if (data.memos && Array.isArray(data.memos)) {
+                data.memos = data.memos.map(m => {
+                    if (deletedIds.memos.has(m.id)) {
+                        const deleted = existingData.memos.find(em => em.id === m.id);
+                        return { ...m, deleted: deleted.deleted, deletedAt: deleted.deletedAt, updatedAt: deleted.updatedAt };
+                    }
+                    return m;
+                });
                 localStorage.setItem(this.KEYS.MEMOS, JSON.stringify(data.memos));
             }
+            
+            // TODOのインポート（削除フラグを復元）
             if (data.todos && Array.isArray(data.todos)) {
+                data.todos = data.todos.map(t => {
+                    if (deletedIds.todos.has(t.id)) {
+                        const deleted = existingData.todos.find(et => et.id === t.id);
+                        return { ...t, deleted: deleted.deleted, deletedAt: deleted.deletedAt, updatedAt: deleted.updatedAt };
+                    }
+                    return t;
+                });
                 localStorage.setItem(this.KEYS.TODOS, JSON.stringify(data.todos));
             }
+            
+            // 通知のインポート（通知は削除フラグなし）
+            if (data.notifications && Array.isArray(data.notifications)) {
+                localStorage.setItem(this.KEYS.NOTIFICATIONS, JSON.stringify(data.notifications));
+            }
+            
+            // 設定のインポート
+            if (data.settings && typeof data.settings === 'object') {
+                localStorage.setItem(this.KEYS.SETTINGS, JSON.stringify(data.settings));
+            }
+            
             return true;
         } catch (error) {
             console.error('Import error:', error);
             return false;
         }
     },
-
    // データクリア
    clearAllData() {
        const theme = this.getTheme();
