@@ -384,5 +384,3 @@ const Todos = {
 };
 // グローバルスコープに公開（ファイルの最後に追加）
 window.Todos = Todos;
-// completeTodo を直接グローバルに公開
-window.Todos.completeTodo = (todoId) => Todos.completeTodo(todoId);
