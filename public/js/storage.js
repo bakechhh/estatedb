@@ -119,16 +119,33 @@ const Storage = {
 
    // storage.js の deleteProperty メソッドを修正
     deleteProperty(id) {
-        const properties = this.getProperties();
+        const properties = JSON.parse(localStorage.getItem(this.KEYS.PROPERTIES) || '[]');
         const index = properties.findIndex(p => p.id === id);
         
         if (index !== -1) {
-            // 実際に削除せず、削除フラグを立てる
+            // 削除フラグを立てる
             properties[index].deleted = true;
             properties[index].deletedAt = new Date().toISOString();
             properties[index].updatedAt = new Date().toISOString();
             
             localStorage.setItem(this.KEYS.PROPERTIES, JSON.stringify(properties));
+            
+            // 関連する売上データのpropertyIdをクリア
+            const sales = JSON.parse(localStorage.getItem(this.KEYS.SALES) || '[]');
+            let updated = false;
+            sales.forEach(sale => {
+                if (sale.propertyId === id && !sale.deleted) {
+                    sale.propertyId = null;
+                    sale.propertyDeleted = true;
+                    sale.updatedAt = new Date().toISOString();
+                    updated = true;
+                }
+            });
+            
+            if (updated) {
+                localStorage.setItem(this.KEYS.SALES, JSON.stringify(sales));
+            }
+            
             return true;
         }
         return false;
@@ -787,6 +804,129 @@ const Storage = {
        
        return deadlines.sort((a, b) => a.daysRemaining - b.daysRemaining);
    },
+
+   // ストレージ使用量を確認
+    getStorageSize() {
+        let totalSize = 0;
+        for (let key in localStorage) {
+            if (localStorage.hasOwnProperty(key)) {
+                totalSize += localStorage[key].length + key.length;
+            }
+        }
+        return totalSize;
+    },
+
+    // ストレージ使用率を取得（％）
+    getStorageUsagePercentage() {
+        // LocalStorageの制限は通常5MB（5,242,880バイト）
+        const maxSize = 5 * 1024 * 1024;
+        const currentSize = this.getStorageSize();
+        return Math.round((currentSize / maxSize) * 100);
+    },
+
+    // 古い削除済みデータをクリーンアップ
+    cleanupDeletedData(daysToKeep = 30) {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+        
+        let cleanedCount = 0;
+        
+        // 各種データをクリーンアップ
+        ['PROPERTIES', 'SALES', 'MEMOS', 'TODOS'].forEach(key => {
+            const dataKey = this.KEYS[key];
+            const data = JSON.parse(localStorage.getItem(dataKey) || '[]');
+            const originalLength = data.length;
+            
+            const filtered = data.filter(item => {
+                if (item.deleted && item.deletedAt) {
+                    const deletedDate = new Date(item.deletedAt);
+                    return deletedDate > cutoffDate;
+                }
+                return true;
+            });
+            
+            cleanedCount += originalLength - filtered.length;
+            localStorage.setItem(dataKey, JSON.stringify(filtered));
+        });
+        
+        console.log(`Cleaned up ${cleanedCount} old deleted items`);
+        return cleanedCount;
+    },
+
+    // ストレージの健全性チェック
+    checkStorageHealth() {
+        const usage = this.getStorageUsagePercentage();
+        
+        if (usage > 80) {
+            // 80%以上使用している場合は古いデータをクリーンアップ
+            this.cleanupDeletedData(7); // 7日以上前の削除済みデータを物理削除
+            
+            if (usage > 90) {
+                EstateApp.showToast('ストレージ容量が不足しています。不要なデータを削除してください。', 'danger');
+            }
+        }
+        
+        return {
+            usage: usage,
+            size: this.getStorageSize(),
+            healthy: usage < 80
+        };
+    },
+
+    // 削除を取り消し（復元）
+    restoreProperty(id) {
+        const properties = JSON.parse(localStorage.getItem(this.KEYS.PROPERTIES) || '[]');
+        const property = properties.find(p => p.id === id && p.deleted);
+        
+        if (property) {
+            delete property.deleted;
+            delete property.deletedAt;
+            property.updatedAt = new Date().toISOString();
+            property.restoredAt = new Date().toISOString();
+            localStorage.setItem(this.KEYS.PROPERTIES, JSON.stringify(properties));
+            return true;
+        }
+        return false;
+    },
+
+    restoreSale(id) {
+        const sales = JSON.parse(localStorage.getItem(this.KEYS.SALES) || '[]');
+        const sale = sales.find(s => s.id === id && s.deleted);
+        
+        if (sale) {
+            delete sale.deleted;
+            delete sale.deletedAt;
+            sale.updatedAt = new Date().toISOString();
+            sale.restoredAt = new Date().toISOString();
+            localStorage.setItem(this.KEYS.SALES, JSON.stringify(sales));
+            return true;
+        }
+        return false;
+    },
+
+    // 最近削除されたアイテムを取得
+    getRecentlyDeleted(type = 'all', days = 7) {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+        
+        const result = [];
+        
+        if (type === 'all' || type === 'properties') {
+            const properties = JSON.parse(localStorage.getItem(this.KEYS.PROPERTIES) || '[]');
+            properties.filter(p => p.deleted && new Date(p.deletedAt) > cutoffDate)
+                .forEach(p => result.push({ type: 'property', data: p }));
+        }
+        
+        if (type === 'all' || type === 'sales') {
+            const sales = JSON.parse(localStorage.getItem(this.KEYS.SALES) || '[]');
+            sales.filter(s => s.deleted && new Date(s.deletedAt) > cutoffDate)
+                .forEach(s => result.push({ type: 'sale', data: s }));
+        }
+        
+        return result.sort((a, b) => 
+            new Date(b.data.deletedAt) - new Date(a.data.deletedAt)
+        );
+    },
 
    // エクスポート/インポート
    exportData() {

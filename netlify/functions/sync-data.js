@@ -194,8 +194,17 @@ function mergeArrays(serverArray, clientArray, idField) {
         if (item[idField]) {
             const existing = map.get(item[idField]);
             
-            // 削除フラグがある場合は常に優先
-            if (item.deleted) {
+            // 削除フラグの競合を解決
+            if (item.deleted && existing?.deleted) {
+                const itemDeletedAt = new Date(item.deletedAt || 0);
+                const existingDeletedAt = new Date(existing.deletedAt || 0);
+                // より新しい削除日時を採用
+                if (itemDeletedAt >= existingDeletedAt) {
+                    map.set(item[idField], item);
+                }
+            }
+            // 削除フラグがある場合は優先
+            else if (item.deleted) {
                 map.set(item[idField], item);
             }
             // 新規または更新日時が新しい場合は上書き
@@ -205,7 +214,7 @@ function mergeArrays(serverArray, clientArray, idField) {
         }
     });
     
-    // ★重要：ローカルに存在しないサーバーのデータは、クライアントが削除したとみなす
+    // ローカルに存在しないサーバーのデータは、クライアントが削除したとみなす
     const clientIds = new Set(clientArray.map(item => item[idField]));
     serverArray.forEach(item => {
         if (item[idField] && !clientIds.has(item[idField]) && !item.deleted) {
