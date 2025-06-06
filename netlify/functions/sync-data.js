@@ -205,10 +205,8 @@ function mergeArrays(serverArray, clientArray, idField) {
         }
     });
     
-    // 削除されていないアイテムのみを返す
-    const activeItems = Array.from(map.values()).filter(item => !item.deleted);
-    
-    return activeItems.sort((a, b) => {
+    // ★ここを修正：削除フラグ付きも含めてすべて返す
+    return Array.from(map.values()).sort((a, b) => {
         const dateA = new Date(a.createdAt || a.updatedAt || 0);
         const dateB = new Date(b.createdAt || b.updatedAt || 0);
         return dateB - dateA;
