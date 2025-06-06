@@ -582,14 +582,26 @@ window.addEventListener('DOMContentLoaded', async () => {
 
             const result = await response.json();
             if (result.success && result.data) {
-                // サーバーデータが空の場合はローカルデータを保持
+                // サーバーデータとローカルデータを適切にマージ
                 const serverData = result.data;
+                
+                // ローカルに削除フラグがあるものを記録
+                const localDeletedIds = {
+                    sales: new Set(JSON.parse(localStorage.getItem('estate_sales') || '[]')
+                        .filter(s => s.deleted)
+                        .map(s => s.id)),
+                    properties: new Set(JSON.parse(localStorage.getItem('estate_properties') || '[]')
+                        .filter(p => p.deleted)
+                        .map(p => p.id))
+                };
+                
+                // サーバーデータから削除済みのものを除外
                 const mergedData = {
-                    properties: serverData.properties?.length > 0 ? serverData.properties : localBackup.properties,
-                    sales: serverData.sales?.length > 0 ? serverData.sales : localBackup.sales,
-                    goals: serverData.goals?.length > 0 ? serverData.goals : localBackup.goals,
-                    memos: serverData.memos?.length > 0 ? serverData.memos : localBackup.memos,
-                    todos: serverData.todos?.length > 0 ? serverData.todos : localBackup.todos,
+                    properties: (serverData.properties || []).filter(p => !localDeletedIds.properties.has(p.id)),
+                    sales: (serverData.sales || []).filter(s => !localDeletedIds.sales.has(s.id)),
+                    goals: serverData.goals || localBackup.goals,
+                    memos: serverData.memos || localBackup.memos,
+                    todos: serverData.todos || localBackup.todos,
                     notifications: serverData.notifications || localBackup.notifications,
                     settings: serverData.settings || Storage.getSettings()
                 };
@@ -597,12 +609,13 @@ window.addEventListener('DOMContentLoaded', async () => {
                 Storage.importData(mergedData);
                 EstateApp.showToast('データを読み込みました');
                 
-                // バージョン情報を保存
-                if (result.version) {
-                    localStorage.setItem('data_version', result.version);
+                // すぐに同期して削除フラグをサーバーに反映
+                if (localDeletedIds.sales.size > 0 || localDeletedIds.properties.size > 0) {
+                    setTimeout(() => {
+                        EstateApp.syncData(false);
+                    }, 1000);
                 }
             } else {
-                // サーバーからデータが取得できない場合はローカルデータを維持
                 console.log('サーバーデータが取得できないため、ローカルデータを使用します');
             }
         } catch (error) {
