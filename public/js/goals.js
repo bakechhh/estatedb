@@ -198,40 +198,76 @@ const Goals = {
         // audio.play().catch(e => console.log('効果音の再生に失敗しました'));
     },
 
-    showRanking(period = 'monthly') {
-        const rankings = Storage.getRankings(period);
+    async showRanking(period = 'monthly') {
         const modal = document.createElement('div');
         modal.className = 'modal';
         modal.style.display = 'flex';
         
+        // ローディング表示
         modal.innerHTML = `
             <div class="modal-content">
                 <h3>🏆 ${period === 'monthly' ? '月間' : '年間'}ランキング</h3>
-                <div class="ranking-list">
-                    ${rankings.map((entry, index) => `
-                        <div class="ranking-item ${index < 3 ? 'top-three' : ''}">
-                            <div class="rank">${this.getRankIcon(index + 1)}</div>
-                            <div class="rank-info">
-                                <div class="rank-name">${entry.name}</div>
-                                <div class="rank-stats">
-                                    成約: ${entry.dealCount}件 / 
-                                    売上: ${EstateApp.formatCurrency(entry.revenue)}
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-                <div class="modal-actions">
-                    <button class="secondary-btn" onclick="this.closest('.modal').remove()">閉じる</button>
+                <div style="text-align: center; padding: 2rem;">
+                    <div class="loading-spinner">読み込み中...</div>
                 </div>
             </div>
         `;
         
+        document.body.appendChild(modal);
+        
+        try {
+            // スタッフ情報を事前に読み込む
+            await Staff.getStoreStaffList();
+            
+            // ランキングデータを取得
+            const rankings = Storage.getRankings(period);
+            
+            // モーダル内容を更新
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h3>🏆 ${period === 'monthly' ? '月間' : '年間'}ランキング</h3>
+                    <div class="ranking-tabs" style="margin-bottom: 1rem;">
+                        <button class="secondary-btn ${period === 'monthly' ? 'active' : ''}" 
+                                onclick="this.closest('.modal').remove(); Goals.showRanking('monthly')">月間</button>
+                        <button class="secondary-btn ${period === 'yearly' ? 'active' : ''}" 
+                                onclick="this.closest('.modal').remove(); Goals.showRanking('yearly')">年間</button>
+                    </div>
+                    <div class="ranking-list">
+                        ${rankings.length === 0 ? '<p class="no-data">データがありません</p>' : ''}
+                        ${rankings.map((entry, index) => `
+                            <div class="ranking-item ${index < 3 ? 'top-three' : ''}">
+                                <div class="rank">${this.getRankIcon(index + 1)}</div>
+                                <div class="rank-info">
+                                    <div class="rank-name">${entry.name}</div>
+                                    <div class="rank-stats">
+                                        成約: ${entry.dealCount}件 / 
+                                        売上: ${EstateApp.formatCurrency(entry.revenue)}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="modal-actions">
+                        <button class="secondary-btn" onclick="this.closest('.modal').remove()">閉じる</button>
+                    </div>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Ranking error:', error);
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h3>エラー</h3>
+                    <p>ランキングデータの取得に失敗しました</p>
+                    <div class="modal-actions">
+                        <button class="secondary-btn" onclick="this.closest('.modal').remove()">閉じる</button>
+                    </div>
+                </div>
+            `;
+        }
+        
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.remove();
         });
-        
-        document.body.appendChild(modal);
     },
 
     getRankIcon(rank) {

@@ -2142,3 +2142,32 @@ textarea {
     font-weight: normal;
     margin-left: 0.5rem;
 }
+.ranking-tabs {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.ranking-tabs .secondary-btn {
+    flex: 1;
+    max-width: 150px;
+}
+
+.ranking-tabs .secondary-btn.active {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top-color: var(--accent-color);
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

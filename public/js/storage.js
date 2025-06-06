@@ -362,25 +362,51 @@ const Storage = {
 
    // ランキング取得
    getRankings(period = 'monthly') {
-       const sales = this.getSales();
-       const now = new Date();
-       let startDate, endDate;
+        const sales = this.getSales();
+        const now = new Date();
+        let startDate, endDate;
 
-       if (period === 'monthly') {
-           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-           endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-       } else {
-           startDate = new Date(now.getFullYear(), 0, 1);
-           endDate = new Date(now.getFullYear(), 11, 31);
-       }
+        if (period === 'monthly') {
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        } else if (period === 'yearly') {
+            startDate = new Date(now.getFullYear(), 0, 1);
+            endDate = new Date(now.getFullYear(), 11, 31);
+        }
 
-       // 仮のランキングデータ（実際のプロジェクトでは売上データから計算）
-       return [
-           { name: 'あなた', dealCount: 15, revenue: 5000000 },
-           { name: '営業A', dealCount: 12, revenue: 4500000 },
-           { name: '営業B', dealCount: 10, revenue: 4000000 }
-       ];
-   },
+        // スタッフ別に集計
+        const staffStats = {};
+        
+        sales.forEach(sale => {
+            const saleDate = new Date(sale.date);
+            if (saleDate >= startDate && saleDate <= endDate) {
+                const staffId = sale.staffId || 'unknown';
+                
+                if (!staffStats[staffId]) {
+                    staffStats[staffId] = {
+                        staffId,
+                        dealCount: 0,
+                        revenue: 0
+                    };
+                }
+                
+                staffStats[staffId].dealCount++;
+                staffStats[staffId].revenue += sale.profit || sale.amount || 0;
+            }
+        });
+        
+        // 配列に変換してソート
+        const rankings = Object.values(staffStats)
+            .sort((a, b) => b.revenue - a.revenue)
+            .map(stat => ({
+                staffId: stat.staffId,
+                name: Staff.getStaffNameSync(stat.staffId),
+                dealCount: stat.dealCount,
+                revenue: stat.revenue
+            }));
+        
+        return rankings;
+    },
 
    // データ分析用メソッド
    // 月次統計を拡張
