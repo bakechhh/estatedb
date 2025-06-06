@@ -24,18 +24,22 @@ const Todos = {
             completed: false,
             completedAt: null,
             createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
             // 追加フィールド
             staffId: isShared ? null : Permissions.getCurrentStaffId(), // nullは共有TODO
             createdBy: Permissions.getCurrentStaffId()
         };
         
-        Storage.saveTodo(todo);
+        // ローカルストレージに保存
+        const todos = JSON.parse(localStorage.getItem(Storage.KEYS.TODOS) || '[]');
+        todos.push(todo);
+        localStorage.setItem(Storage.KEYS.TODOS, JSON.stringify(todos));
+        
         this.scheduleNotification(todo);
         EstateApp.showToast('TODOを追加しました');
         
-        if (EstateApp.currentTab === 'dashboard') {
-            this.renderTodoWidget();
-        }
+        // TODOウィジェットを即座に更新
+        this.renderTodoWidget();
         
         return todo;
     },
@@ -74,9 +78,10 @@ const Todos = {
             // 完了アニメーション
             this.showTodoCompleteAnimation();
             
-            if (EstateApp.currentTab === 'dashboard') {
-                this.renderTodoWidget();
-            }
+            // TODOウィジェットを即座に更新
+            this.renderTodoWidget();
+            
+            EstateApp.showToast('TODOを完了しました');
         }
     },
 
@@ -195,15 +200,14 @@ const Todos = {
         if (!container) return;
         
         // ビューに応じてTODOを取得
+        const currentStaffId = Permissions.getCurrentStaffId();
         let todos = Storage.getTodos().filter(todo => !todo.completed);
         
         if (Dashboard.currentView === 'personal') {
             // 個人ビュー: 自分のTODOのみ
-            const currentStaffId = Permissions.getCurrentStaffId();
             todos = todos.filter(todo => todo.staffId === currentStaffId);
         } else {
             // 店舗ビュー: 共有TODOと自分のTODO
-            const currentStaffId = Permissions.getCurrentStaffId();
             todos = todos.filter(todo => todo.staffId === null || todo.staffId === currentStaffId);
         }
         
@@ -352,9 +356,22 @@ const Todos = {
         const animation = document.createElement('div');
         animation.className = 'todo-complete-animation';
         animation.innerHTML = '✅';
+        animation.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 5rem;
+            color: var(--success-color);
+            z-index: 10000;
+            pointer-events: none;
+        `;
         document.body.appendChild(animation);
         
-        setTimeout(() => animation.remove(), 1000);
+        // アニメーション後に削除
+        setTimeout(() => {
+            animation.remove();
+        }, 1000);
     },
     
     loadTodos() {
@@ -365,5 +382,7 @@ const Todos = {
         this.showTodoModal(todoId);
     }
 };
-// グローバルスコープに公開
+// グローバルスコープに公開（ファイルの最後に追加）
 window.Todos = Todos;
+// completeTodo を直接グローバルに公開
+window.Todos.completeTodo = (todoId) => Todos.completeTodo(todoId);

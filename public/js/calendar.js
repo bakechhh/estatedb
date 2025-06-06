@@ -110,15 +110,22 @@ const Calendar = {
 
     getMonthSalesData() {
         const [year, month] = this.currentYearMonth.split('-').map(Number);
-        const sales = Storage.getSales();
+        let sales;
+        
+        // Dashboardの現在のビューに応じてデータを取得
+        if (typeof Dashboard !== 'undefined' && Dashboard.currentView === 'personal') {
+            sales = Storage.getPersonalSales();
+        } else {
+            sales = Storage.getSales();
+        }
+        
         const monthSales = {};
         
         sales.forEach(sale => {
-            // 売上日を正しく解析
             const [saleYear, saleMonth, saleDay] = sale.date.split('-').map(Number);
             
             if (saleYear === year && saleMonth === month) {
-                const dateStr = sale.date;  // そのまま使用
+                const dateStr = sale.date;
                 
                 if (!monthSales[dateStr]) {
                     monthSales[dateStr] = {
@@ -141,8 +148,18 @@ const Calendar = {
 
     getMonthDeadlines() {
         const [year, month] = this.currentYearMonth.split('-').map(Number);
-        const properties = Storage.getProperties();
-        const sales = Storage.getSales();
+        let properties;
+        let sales;
+        
+        // Dashboardの現在のビューに応じてデータを取得
+        if (typeof Dashboard !== 'undefined' && Dashboard.currentView === 'personal') {
+            properties = Storage.getPersonalProperties();
+            sales = Storage.getPersonalSales();
+        } else {
+            properties = Storage.getProperties();
+            sales = Storage.getSales();
+        }
+        
         const deadlines = {};
         
         // 物件の期日チェック

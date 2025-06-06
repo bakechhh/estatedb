@@ -316,14 +316,14 @@ const Storage = {
 
    // TODO管理
    getTodos() {
-       const data = localStorage.getItem(this.KEYS.TODOS);
-       return data ? JSON.parse(data) : [];
-   },
-
-   getTodos() {
         const data = localStorage.getItem(this.KEYS.TODOS);
         const allTodos = data ? JSON.parse(data) : [];
         return allTodos.filter(t => !t.deleted);
+    },
+
+    getTodo(id) {
+        const todos = this.getTodos();
+        return todos.find(t => t.id === id);
     },
 
    saveTodo(todo) {
@@ -334,14 +334,16 @@ const Storage = {
    },
 
    updateTodo(todo) {
-       const todos = this.getTodos();
-       const index = todos.findIndex(t => t.id === todo.id);
-       if (index !== -1) {
-           todos[index] = todo;
-           localStorage.setItem(this.KEYS.TODOS, JSON.stringify(todos));
-       }
-       return todo;
-   },
+        const data = localStorage.getItem(this.KEYS.TODOS);
+        const allTodos = data ? JSON.parse(data) : [];
+        const index = allTodos.findIndex(t => t.id === todo.id);
+        
+        if (index !== -1) {
+            allTodos[index] = todo;
+            localStorage.setItem(this.KEYS.TODOS, JSON.stringify(allTodos));
+        }
+        return todo;
+    },
 
    deleteTodo(id) {
         const todos = this.getTodos();

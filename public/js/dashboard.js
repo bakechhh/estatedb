@@ -16,30 +16,31 @@ const Dashboard = {
 
    // ビュー切り替えの設定（スタッフも使える）
    setupViewToggle() {
-       const container = document.getElementById('view-toggle-container');
-       if (!container) return;
+        const container = document.getElementById('view-toggle-container');
+        if (!container) return;
 
-       // 全ユーザーに切り替えボタンを表示
-       container.innerHTML = `
-           <div class="view-toggle">
-               <button class="toggle-btn active" data-view="store">店舗全体</button>
-               <button class="toggle-btn" data-view="personal">個人</button>
-           </div>
-       `;
+        container.innerHTML = `
+            <div class="view-toggle">
+                <button class="toggle-btn active" data-view="store">店舗全体</button>
+                <button class="toggle-btn" data-view="personal">個人</button>
+            </div>
+        `;
 
-       // イベントリスナー設定
-       container.querySelectorAll('.toggle-btn').forEach(btn => {
-           btn.addEventListener('click', (e) => {
-               // アクティブクラスの切り替え
-               container.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-               e.target.classList.add('active');
-               
-               // ビューの切り替え
-               this.currentView = e.target.dataset.view;
-               this.refresh();
-           });
-       });
-   },
+        container.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                container.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                this.currentView = e.target.dataset.view;
+                this.refresh();
+                
+                // カレンダーも更新
+                if (typeof Calendar !== 'undefined') {
+                    Calendar.render();
+                }
+            });
+        });
+    },
 
    async refresh() {
         this.updateSummary();
@@ -48,6 +49,11 @@ const Dashboard = {
         this.updateGoalProgress();
         this.updateMediationProperties();
         
+        // TODOウィジェットも更新
+        if (typeof Todos !== 'undefined') {
+            Todos.renderTodoWidget();
+        }
+
         // マネージャーの場合はスタッフ実績も更新
         if (Permissions.isManager()) {
             await this.updateStaffPerformance(); // awaitを追加
