@@ -207,9 +207,24 @@ function mergeArrays(serverArray, clientArray, idField) {
             else if (item.deleted) {
                 map.set(item[idField], item);
             }
-            // 新規または更新日時が新しい場合は上書き
-            else if (!existing || isNewer(item, existing)) {
-                map.set(item[idField], item);
+            // 両方に削除フラグがない場合
+            else if (!existing?.deleted) {
+                // 新規または更新日時が新しい場合は上書き
+                if (!existing || isNewer(item, existing)) {
+                    map.set(item[idField], item);
+                }
+            }
+            // サーバー側が削除済みでクライアント側が削除済みでない場合
+            // （誤って復元された場合の対策）
+            else if (existing.deleted && !item.deleted) {
+                console.warn(`Conflict: Server has deleted flag but client doesn't for ID ${item[idField]}`);
+                // サーバーの削除を優先
+                // ただし、クライアントの更新が削除より新しい場合は復元とみなす
+                const clientUpdatedAt = new Date(item.updatedAt || 0);
+                const serverDeletedAt = new Date(existing.deletedAt || 0);
+                if (clientUpdatedAt > serverDeletedAt) {
+                    map.set(item[idField], item); // 復元
+                }
             }
         }
     });

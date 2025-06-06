@@ -351,6 +351,93 @@ const EstateApp = {
         return count;
     },
 
+    // ゴミ箱モーダルを表示
+    showTrashModal() {
+        const deletedItems = Storage.getRecentlyDeleted('all', 7);
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        
+        let itemsHtml = '';
+        if (deletedItems.length === 0) {
+            itemsHtml = '<p class="no-data">削除済みアイテムはありません</p>';
+        } else {
+            itemsHtml = deletedItems.map(item => {
+                const data = item.data;
+                const typeLabel = item.type === 'property' ? '物件' : '売上';
+                const name = data.name || data.propertyName || data.dealName || data.customerName || '名称なし';
+                const deletedAt = new Date(data.deletedAt).toLocaleString('ja-JP');
+                
+                return `
+                    <div class="transaction-card" style="margin-bottom: 1rem;">
+                        <div class="transaction-header">
+                            <div>
+                                <div class="transaction-title">${name}</div>
+                                <div class="transaction-meta">
+                                    <span class="transaction-type">${typeLabel}</span>
+                                    <span>削除日時: ${deletedAt}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="transaction-footer">
+                            <button class="primary-btn" onclick="EstateApp.restoreItem('${item.type}', '${data.id}')">
+                                復元
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        modal.innerHTML = `
+            <div class="modal-content modal-large">
+                <h3>🗑️ ゴミ箱（過去7日間）</h3>
+                <div style="max-height: 60vh; overflow-y: auto;">
+                    ${itemsHtml}
+                </div>
+                <div class="modal-actions">
+                    <button class="secondary-btn" onclick="this.closest('.modal').remove()">閉じる</button>
+                </div>
+            </div>
+        `;
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+        
+        document.body.appendChild(modal);
+    },
+
+    // アイテムを復元
+    restoreItem(type, id) {
+        let restored = false;
+        
+        if (type === 'property') {
+            restored = Storage.restoreProperty(id);
+            if (restored) {
+                Inventory.renderPropertyList();
+            }
+        } else if (type === 'sale') {
+            restored = Storage.restoreSale(id);
+            if (restored) {
+                Transactions.renderTransactionList();
+            }
+        }
+        
+        if (restored) {
+            EstateApp.showToast('データを復元しました');
+            // モーダルを更新
+            document.querySelector('.modal').remove();
+            this.showTrashModal();
+            
+            // 同期を実行
+            this.syncData(true);
+        } else {
+            EstateApp.showToast('復元に失敗しました', 'danger');
+        }
+    },
+
     // 更新チェック
     async checkForUpdates() {
         const token = sessionStorage.getItem('auth_token');
