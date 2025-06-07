@@ -774,10 +774,22 @@ window.addEventListener('DOMContentLoaded', async () => {
 
             const result = await response.json();
             if (result.success && result.data) {
+                // トークンから現在のスタッフIDを取得
+                let currentStaffId = null;
+                try {
+                    const tokenData = JSON.parse(atob(token));
+                    currentStaffId = tokenData.staffId;
+                } catch (error) {
+                    console.error('Token parse error:', error);
+                }
+                
                 // 重要：サーバーから取得したデータにローカルの削除フラグを復元
-                if (result.data.sales) {
+                // ただし、自分が作成したデータのみ
+                
+                if (result.data.sales && currentStaffId) {
                     result.data.sales = result.data.sales.map(sale => {
-                        if (localDeletedIds.sales.has(sale.id)) {
+                        // 自分が作成したデータのみ削除フラグを復元
+                        if (localDeletedIds.sales.has(sale.id) && sale.staffId === currentStaffId) {
                             const localSale = localData.sales.find(s => s.id === sale.id);
                             return {
                                 ...sale,
@@ -790,11 +802,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                     });
                 }
                 
-                // 重要：サーバーから取得したデータにローカルの削除フラグを復元
-                // ただし、自分が作成したデータのみ
-                const currentStaffId = Permissions.getCurrentStaffId();
-
-                if (result.data.properties) {
+                if (result.data.properties && currentStaffId) {
                     result.data.properties = result.data.properties.map(property => {
                         // 自分が作成したデータのみ削除フラグを復元
                         if (localDeletedIds.properties.has(property.id) && property.staffId === currentStaffId) {
