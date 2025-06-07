@@ -229,20 +229,21 @@ function mergeArrays(serverArray, clientArray, idField) {
         }
     });
     
-    // ローカルに存在しないサーバーのデータは、クライアントが削除したとみなす
-    const clientIds = new Set(clientArray.map(item => item[idField]));
-    serverArray.forEach(item => {
-        if (item[idField] && !clientIds.has(item[idField]) && !item.deleted) {
-            // クライアントに存在しない = 削除された
-            const deletedItem = {
-                ...item,
-                deleted: true,
-                deletedAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            map.set(item[idField], deletedItem);
-        }
-    });
+    // ローカルに存在しないサーバーのデータは、削除とみなさない
+    // 他のスタッフが作成したデータの可能性があるため
+    // const clientIds = new Set(clientArray.map(item => item[idField]));
+    // serverArray.forEach(item => {
+    //     if (item[idField] && !clientIds.has(item[idField]) && !item.deleted) {
+    //         // クライアントに存在しない = 削除された
+    //         const deletedItem = {
+    //             ...item,
+    //             deleted: true,
+    //             deletedAt: new Date().toISOString(),
+    //             updatedAt: new Date().toISOString()
+    //         };
+    //         map.set(item[idField], deletedItem);
+    //     }
+    // });
     
     // 削除フラグ付きも含めてすべて返す
     return Array.from(map.values()).sort((a, b) => {
