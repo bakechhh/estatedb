@@ -10,6 +10,27 @@ const EstateApp = {
         // スタッフ管理の初期化
         Staff.init();
         
+        // Service Worker更新チェック
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(registration => {
+                registration.update();
+                
+                // 新しいService Workerが待機中の場合
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // 更新通知を表示
+                            if (confirm('新しいバージョンが利用可能です。更新しますか？')) {
+                                window.location.reload();
+                            }
+                        }
+                    });
+                });
+            });
+        }
+        
         // 権限情報が確実に読み込まれてから移行処理を実行
         setTimeout(() => {
             try {

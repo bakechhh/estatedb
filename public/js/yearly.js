@@ -174,26 +174,27 @@ const Yearly = {
             const saleYear = saleDate.getFullYear();
             const saleMonth = saleDate.getMonth() + 1;
             
-            if (saleYear !== this.currentYear) return;
-            
             const amount = sale.profit || sale.amount || 0;
             
-            // 売上として計上
-            yearData.monthly[saleMonth].sales += amount;
-            yearData.yearTotal.sales += amount;
-            
-            if (saleMonth <= 6) {
-                yearData.firstHalf.sales += amount;
-            } else {
-                yearData.secondHalf.sales += amount;
+            // 売上年が対象年の場合のみ売上として計上
+            if (saleYear === this.currentYear) {
+                yearData.monthly[saleMonth].sales += amount;
+                yearData.yearTotal.sales += amount;
+                
+                if (saleMonth <= 6) {
+                    yearData.firstHalf.sales += amount;
+                } else {
+                    yearData.secondHalf.sales += amount;
+                }
             }
             
-            // 回収日が設定されている場合は回収として計上
+            // 回収日が設定されている場合は回収として計上（売上年に関係なく）
             if (sale.collectionDate) {
                 const collectionDate = new Date(sale.collectionDate);
                 const collectionYear = collectionDate.getFullYear();
                 const collectionMonth = collectionDate.getMonth() + 1;
                 
+                // 回収年が対象年の場合のみ回収として計上
                 if (collectionYear === this.currentYear) {
                     yearData.monthly[collectionMonth].collected += amount;
                     yearData.yearTotal.collected += amount;

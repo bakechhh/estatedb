@@ -1,5 +1,5 @@
 // sw.js - Service Worker for offline functionality
-const CACHE_NAME = 'estate-app-v1';
+const CACHE_NAME = 'estate-app-v2'; // バージョンを上げる
 const urlsToCache = [
     './',
     './index.html',
@@ -24,6 +24,9 @@ const urlsToCache = [
 
 // インストール
 self.addEventListener('install', event => {
+    // 待機をスキップしてすぐにアクティブ化
+    self.skipWaiting();
+    
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => {
@@ -91,6 +94,9 @@ self.addEventListener('activate', event => {
                     }
                 })
             );
+        }).then(() => {
+            // すぐに新しいService Workerを有効化
+            return self.clients.claim();
         })
     );
 });
