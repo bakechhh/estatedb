@@ -127,6 +127,7 @@ const Storage = {
             properties[index].deleted = true;
             properties[index].deletedAt = new Date().toISOString();
             properties[index].updatedAt = new Date().toISOString();
+            properties[index].deletedBy = Permissions.getCurrentStaffId(); // 追加
             
             localStorage.setItem(this.KEYS.PROPERTIES, JSON.stringify(properties));
             

@@ -790,9 +790,14 @@ window.addEventListener('DOMContentLoaded', async () => {
                     });
                 }
                 
+                // 重要：サーバーから取得したデータにローカルの削除フラグを復元
+                // ただし、自分が作成したデータのみ
+                const currentStaffId = Permissions.getCurrentStaffId();
+
                 if (result.data.properties) {
                     result.data.properties = result.data.properties.map(property => {
-                        if (localDeletedIds.properties.has(property.id)) {
+                        // 自分が作成したデータのみ削除フラグを復元
+                        if (localDeletedIds.properties.has(property.id) && property.staffId === currentStaffId) {
                             const localProp = localData.properties.find(p => p.id === property.id);
                             return {
                                 ...property,
